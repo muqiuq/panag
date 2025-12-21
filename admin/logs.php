@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../lib/functions.php';
 require_admin();
 
 $search = trim($_GET['q'] ?? '');
@@ -26,7 +26,7 @@ $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $actionStmt = db()->query('SELECT DISTINCT action FROM audit_log ORDER BY action');
 $actions = $actionStmt ? $actionStmt->fetchAll(PDO::FETCH_COLUMN) : [];
 
-include __DIR__ . '/header.php';
+include __DIR__ . '/../lib/header.php';
 ?>
 <div class="card shadow-sm mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -95,4 +95,4 @@ include __DIR__ . '/header.php';
     </div>
   </div>
 </div>
-<?php include __DIR__ . '/footer.php'; ?>
+<?php include __DIR__ . '/../lib/footer.php'; ?>

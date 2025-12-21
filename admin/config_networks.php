@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../lib/functions.php';
 require_admin();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -12,12 +12,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete') {
         delete_network((int)($_POST['id'] ?? 0));
     }
-    header('Location: ' . url_for('config_networks.php'));
+    header('Location: ' . url_for('admin/config_networks.php'));
     exit;
 }
 
 $networks = get_all_networks();
-include __DIR__ . '/header.php';
+  include __DIR__ . '/../lib/header.php';
 ?>
 <div class="card shadow-sm mb-4">
   <div class="card-header">Add network</div>
@@ -78,4 +78,4 @@ include __DIR__ . '/header.php';
     </div>
   </div>
 </div>
-<?php include __DIR__ . '/footer.php'; ?>
+<?php include __DIR__ . '/../lib/footer.php'; ?>

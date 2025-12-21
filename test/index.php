@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../functions.php';
+require_once __DIR__ . '/../lib/functions.php';
 
 if (!defined('ALLOW_TESTS') || !ALLOW_TESTS) {
     http_response_code(403);

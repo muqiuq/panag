@@ -25,9 +25,9 @@ $basePath = base_path();
         <?php if ($user): ?>
           <li class="nav-item d-flex align-items-center"><span class="navbar-text fw-semibold">User: <?= htmlspecialchars($user['username']) ?> (<?= htmlspecialchars($user['user_ip']) ?>)</span></li>
           <?php if ((int)$user['isadmin'] === 1): ?>
-            <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('config_networks.php')) ?>">Networks</a></li>
-            <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('config_user.php')) ?>">Users</a></li>
-            <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('logs.php')) ?>">Logs</a></li>
+            <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('admin/config_networks.php')) ?>">Networks</a></li>
+            <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('admin/config_user.php')) ?>">Users</a></li>
+            <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('admin/logs.php')) ?>">Logs</a></li>
           <?php endif; ?>
           <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('logout.php')) ?>">Logout</a></li>
         <?php endif; ?>

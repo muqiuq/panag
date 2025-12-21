@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/define.php';
+require_once __DIR__ . '/mock_mikrotik.php';
 
 function base_path(): string
 {
@@ -9,6 +10,9 @@ function base_path(): string
     }
     $dir = dirname($_SERVER['SCRIPT_NAME'] ?? '/');
     $dir = str_replace('\\', '/', $dir);
+    if (basename($dir) === 'admin') {
+        $dir = dirname($dir);
+    }
     $dir = rtrim($dir, '/');
     if ($dir === '' || $dir === '.') {
         $dir = '';
@@ -456,11 +460,14 @@ function address_list_name(string $userIp): string
 
 function get_current_address_list_entries(string $userIp): array
 {
+    $listName = address_list_name($userIp);
+    if (is_mock_mikrotik()) {
+        return mock_get_current_address_list_entries($listName);
+    }
     $resp = mikrotik_request('GET', '/ip/firewall/address-list');
     if (!$resp['success'] || !is_array($resp['data'])) {
         return [];
     }
-    $listName = address_list_name($userIp);
     return array_values(array_filter($resp['data'], function ($entry) use ($listName) {
         return isset($entry['list']) && $entry['list'] === $listName;
     }));
@@ -468,6 +475,9 @@ function get_current_address_list_entries(string $userIp): array
 
 function get_all_address_list_entries(): array
 {
+    if (is_mock_mikrotik()) {
+        return mock_get_all_address_list_entries();
+    }
     $resp = mikrotik_request('GET', '/ip/firewall/address-list');
     if (!$resp['success'] || !is_array($resp['data'])) {
         return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'status' => $resp['status'] ?? null, 'data' => []];
@@ -497,8 +507,12 @@ function current_accesses_by_users(array $users): array
 
 function add_address_list_entry(string $userIp, array $network, string $timeout = DEFAULT_TIMEOUT): array
 {
+    $listName = address_list_name($userIp);
+    if (is_mock_mikrotik()) {
+        return mock_add_address_list_entry($listName, $network, $timeout);
+    }
     $payload = [
-        'list' => address_list_name($userIp),
+        'list' => $listName,
         'address' => $network['address'],
         'comment' => $network['name'] ?? 'network',
         'timeout' => $timeout,
@@ -515,11 +529,14 @@ function add_address_list_entry(string $userIp, array $network, string $timeout 
 
 function remove_address_list_entries(string $userIp): array
 {
+    $listName = address_list_name($userIp);
+    if (is_mock_mikrotik()) {
+        return mock_remove_address_list_entries($listName);
+    }
     $resp = mikrotik_request('GET', '/ip/firewall/address-list');
     if (!$resp['success'] || !is_array($resp['data'])) {
         return ['success' => false, 'message' => $resp['error'] ?? 'API error', 'status' => $resp['status'] ?? null, 'deleted' => 0, 'total' => 0];
     }
-    $listName = address_list_name($userIp);
     $entries = array_values(array_filter($resp['data'], function ($entry) use ($listName) {
         return isset($entry['list']) && $entry['list'] === $listName && isset($entry['.id']);
     }));

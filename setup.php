@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/lib/functions.php';
 ensure_session();
 
 $flagFile = __DIR__ . '/setup-completed.txt';
@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       exit;
     }
 
-include __DIR__ . '/header.php';
+include __DIR__ . '/lib/header.php';
 ?>
 <div class="row justify-content-center">
   <div class="col-lg-6">
@@ -87,4 +87,4 @@ include __DIR__ . '/header.php';
     </div>
   </div>
 </div>
-<?php include __DIR__ . '/footer.php'; ?>
+<?php include __DIR__ . '/lib/footer.php'; ?>

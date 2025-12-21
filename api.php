@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/lib/functions.php';
 ensure_session();
 header('Content-Type: application/json');
 

@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../lib/functions.php';
 require_admin();
 
 $networks = get_all_networks();
@@ -29,13 +29,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header('Location: ' . url_for('index.php'));
     exit;
   }
-  header('Location: ' . url_for('config_user.php'));
+  header('Location: ' . url_for('admin/config_user.php'));
   exit;
 }
 
 $users = db()->query('SELECT * FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
 $newUserSecret = generate_otp_secret();
-include __DIR__ . '/header.php';
+include __DIR__ . '/../lib/header.php';
 ?>
 <div class="card shadow-sm mb-4">
   <div class="card-header">Add user</div>
@@ -203,4 +203,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
-<?php include __DIR__ . '/footer.php'; ?>
+<?php include __DIR__ . '/../lib/footer.php'; ?>

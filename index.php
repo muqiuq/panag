@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/lib/functions.php';
 require_login();
 $user = current_user();
 $defaultNetworks = get_default_networks_for_user($user['id']);
@@ -20,7 +20,7 @@ if ((int)$user['isadmin'] === 1) {
   $allUsers = db()->query('SELECT id, username, user_ip FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
   $accessReport = current_accesses_by_users($allUsers);
 }
-include __DIR__ . '/header.php';
+include __DIR__ . '/lib/header.php';
 ?>
 <div class="spinner-overlay" id="spinnerOverlay">
   <div class="spinner-border text-light" role="status"></div>
@@ -246,4 +246,4 @@ revokeButtons.forEach(btn => {
   });
 });
 </script>
-<?php include __DIR__ . '/footer.php'; ?>
+<?php include __DIR__ . '/lib/footer.php'; ?>
