@@ -3,7 +3,7 @@ require_once __DIR__ . '/functions.php';
 require_login();
 $user = current_user();
 $networks = get_all_networks();
-$current = get_current_address_list_entries($user['username']);
+$current = get_current_address_list_entries($user['user_ip']);
 $addresses = array_column($current, 'address');
 include __DIR__ . '/header.php';
 ?>

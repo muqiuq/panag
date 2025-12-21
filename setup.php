@@ -15,23 +15,23 @@ $flagCreated = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf_token($_POST['csrf_token'] ?? null);
-    $name = trim($_POST['name'] ?? '');
+    $username = trim($_POST['username'] ?? '');
     $otp = trim($_POST['otp_secret'] ?? '');
     $access = (int)($_POST['accesslevel'] ?? 10);
 
-    if ($name === '' || $otp === '') {
-        $message = 'Name and OTP secret are required.';
+    if ($username === '' || $otp === '') {
+      $message = 'Username and OTP secret are required.';
         $messageClass = 'danger';
     } else {
-        $existing = fetch_user_by_username($remoteIp);
+      $existing = fetch_user_by_user_ip($remoteIp);
         if ($existing) {
-            $updatedName = $name ?: $existing['name'];
+        $updatedName = $username ?: $existing['username'];
             $updatedOtp = $otp ?: $existing['otp_secret'];
             $updatedAccess = max($existing['accesslevel'], $access);
-            save_user((int)$existing['id'], $updatedName, $remoteIp, $updatedOtp, 1, $updatedAccess);
+        save_user((int)$existing['id'], $updatedName, $remoteIp, $updatedOtp, 1, $updatedAccess);
             $message = 'Existing user promoted to admin.';
         } else {
-            save_user(null, $name, $remoteIp, $otp, 1, $access);
+        save_user(null, $username, $remoteIp, $otp, 1, $access);
             $message = 'Admin user created.';
         }
         $flagCreated = @file_put_contents($flagFile, 'Setup completed on ' . date('c')) !== false;
@@ -64,12 +64,12 @@ include __DIR__ . '/header.php';
         <form method="post" novalidate>
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
           <div class="mb-3">
-            <label class="form-label">Detected username (IP)</label>
+            <label class="form-label">Detected user IP</label>
             <input type="text" class="form-control" value="<?= htmlspecialchars($remoteIp) ?>" readonly>
           </div>
           <div class="mb-3">
-            <label class="form-label">Name</label>
-            <input type="text" name="name" class="form-control" required>
+            <label class="form-label">Username (display)</label>
+            <input type="text" name="username" class="form-control" required>
           </div>
           <div class="mb-3">
             <label class="form-label">OTP secret (Base32)</label>
@@ -77,7 +77,7 @@ include __DIR__ . '/header.php';
           </div>
           <div class="mb-3">
             <label class="form-label">Access level</label>
-            <input type="number" name="accesslevel" class="form-control" value="10" min="0">
+            <input type="number" name="accesslevel" class="form-control" value="10" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>">
           </div>
           <button type="submit" class="btn btn-primary">Save admin</button>
         </form>

@@ -1,5 +1,11 @@
 <?php
-require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../functions.php';
+
+if (!defined('ALLOW_TESTS') || !ALLOW_TESTS) {
+    http_response_code(403);
+    echo 'Tests are disabled.';
+    exit;
+}
 
 if (!ALLOW_DEMO_DATA) {
     http_response_code(401);

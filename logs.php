@@ -58,6 +58,7 @@ include __DIR__ . '/header.php';
             <th>Time</th>
             <th>Action</th>
             <th>User</th>
+            <th>User IP</th>
             <th>Details</th>
             <th>IP</th>
           </tr>
@@ -73,6 +74,13 @@ include __DIR__ . '/header.php';
                 <td>
                   <?php if (!empty($row['username'])): ?>
                     <?= htmlspecialchars($row['username']) ?>
+                  <?php else: ?>
+                    <span class="text-muted">n/a</span>
+                  <?php endif; ?>
+                </td>
+                <td>
+                  <?php if (!empty($row['user_ip'])): ?>
+                    <?= htmlspecialchars($row['user_ip']) ?>
                   <?php else: ?>
                     <span class="text-muted">n/a</span>
                   <?php endif; ?>

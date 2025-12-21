@@ -23,7 +23,7 @@ $basePath = base_path();
     <div class="collapse navbar-collapse">
       <ul class="navbar-nav ms-auto align-items-center gap-3">
         <?php if ($user): ?>
-          <li class="nav-item d-flex align-items-center"><span class="navbar-text fw-semibold">User: <?= htmlspecialchars($user['username']) ?></span></li>
+          <li class="nav-item d-flex align-items-center"><span class="navbar-text fw-semibold">User: <?= htmlspecialchars($user['username']) ?> (<?= htmlspecialchars($user['user_ip']) ?>)</span></li>
           <?php if ((int)$user['isadmin'] === 1): ?>
             <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('config_networks.php')) ?>">Networks</a></li>
             <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('config_user.php')) ?>">Users</a></li>

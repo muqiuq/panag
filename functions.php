@@ -74,6 +74,53 @@ function require_csrf_token(?string $token): void
     }
 }
 
+function ip_in_cidr(string $ip, string $cidr): bool
+{
+    if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        return false;
+    }
+    if (strpos($cidr, '/') === false) {
+        return $ip === $cidr;
+    }
+    [$subnet, $mask] = explode('/', $cidr, 2);
+    if (!filter_var($subnet, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        return false;
+    }
+    $mask = (int)$mask;
+    if ($mask < 0 || $mask > 32) {
+        return false;
+    }
+    $ipBin = inet_pton($ip);
+    $subnetBin = inet_pton($subnet);
+    if ($ipBin === false || $subnetBin === false) {
+        return false;
+    }
+
+    // Build binary mask without integer bit shifts to avoid float conversions.
+    $fullBytes = intdiv($mask, 8);
+    $remainingBits = $mask % 8;
+    $maskBin = str_repeat("\xFF", $fullBytes);
+    if ($remainingBits > 0) {
+        $maskBin .= chr((0xFF << (8 - $remainingBits)) & 0xFF);
+    }
+    $maskBin = str_pad($maskBin, 4, "\x00");
+
+    return ($ipBin & $maskBin) === ($subnetBin & $maskBin);
+}
+
+function login_ip_allowed(string $ip): bool
+{
+    if (!defined('LOGIN_IP_WHITELIST') || !is_array(LOGIN_IP_WHITELIST)) {
+        return true;
+    }
+    foreach (LOGIN_IP_WHITELIST as $cidr) {
+        if (ip_in_cidr($ip, $cidr)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function session_expires_at(): ?int
 {
     if (!defined('SESSION_LIFETIME')) {
@@ -103,8 +150,8 @@ function init_db(PDO $pdo): void
 {
     $pdo->exec('CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        username TEXT NOT NULL UNIQUE,
+        username TEXT NOT NULL,
+        user_ip TEXT NOT NULL UNIQUE,
         otp_secret TEXT NOT NULL,
         isadmin INTEGER NOT NULL DEFAULT 0,
         accesslevel INTEGER NOT NULL DEFAULT 0
@@ -137,11 +184,13 @@ function init_db(PDO $pdo): void
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
         username TEXT,
+        user_ip TEXT,
         action TEXT NOT NULL,
         details TEXT,
         ip TEXT,
         created_at INTEGER NOT NULL
     )');
+
 }
 
 function is_db_empty(PDO $pdo): bool
@@ -156,10 +205,10 @@ function is_db_empty(PDO $pdo): bool
     return true;
 }
 
-function fetch_user_by_username(string $username): ?array
+function fetch_user_by_user_ip(string $userIp): ?array
 {
-    $stmt = db()->prepare('SELECT * FROM users WHERE username = :u LIMIT 1');
-    $stmt->execute([':u' => $username]);
+    $stmt = db()->prepare('SELECT * FROM users WHERE user_ip = :u LIMIT 1');
+    $stmt->execute([':u' => $userIp]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     return $row ?: null;
 }
@@ -228,18 +277,18 @@ function generate_otp_secret(int $length = 32): string
     return $secret;
 }
 
-function log_login_attempt(string $username, string $ip, bool $success): void
+function log_login_attempt(string $userIp, string $ip, bool $success): void
 {
     prune_login_attempts();
     $stmt = db()->prepare('INSERT INTO login_attempts (username, ip, success, created_at) VALUES (:u, :ip, :s, :ts)');
     $stmt->execute([
-        ':u' => $username,
+        ':u' => $userIp,
         ':ip' => $ip,
         ':s' => $success ? 1 : 0,
         ':ts' => time(),
     ]);
     if (!$success) {
-        log_event('login_failed', 'Wrong OTP or user not found', null, $username);
+        log_event('login_failed', 'Wrong OTP or user not found', null, null, $userIp);
     }
 }
 
@@ -262,13 +311,14 @@ function prune_audit_log(): void
     $stmt->execute();
 }
 
-function log_event(string $action, string $details = '', ?int $userId = null, ?string $username = null): void
+function log_event(string $action, string $details = '', ?int $userId = null, ?string $username = null, ?string $userIp = null): void
 {
     $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-    $stmt = db()->prepare('INSERT INTO audit_log (user_id, username, action, details, ip, created_at) VALUES (:uid, :un, :a, :d, :ip, :ts)');
+    $stmt = db()->prepare('INSERT INTO audit_log (user_id, username, user_ip, action, details, ip, created_at) VALUES (:uid, :un, :uip, :a, :d, :ip, :ts)');
     $stmt->execute([
         ':uid' => $userId,
         ':un' => $username,
+        ':uip' => $userIp,
         ':a' => $action,
         ':d' => $details,
         ':ip' => $ip,
@@ -276,34 +326,34 @@ function log_event(string $action, string $details = '', ?int $userId = null, ?s
     ]);
     prune_audit_log();
 }
-function login_rate_limited(string $username, string $ip): bool
+function login_rate_limited(string $userIp, string $ip): bool
 {
     $windowStart = time() - 3600; // 1 hour window
     $stmt = db()->prepare('SELECT COUNT(*) FROM login_attempts WHERE success = 0 AND created_at >= :ts AND (username = :u OR ip = :ip)');
-    $stmt->execute([':ts' => $windowStart, ':u' => $username, ':ip' => $ip]);
+    $stmt->execute([':ts' => $windowStart, ':u' => $userIp, ':ip' => $ip]);
     $failures = (int)$stmt->fetchColumn();
     return $failures >= (int)MAX_LOGIN_ATTEMPTS_PER_HOUR;
 }
 
-function login_user(string $username, string $otp, string $ip = ''): bool
+function login_user(string $userIp, string $otp, string $ip = ''): bool
 {
-    $user = fetch_user_by_username($username);
+    $user = fetch_user_by_user_ip($userIp);
     if (!$user) {
-        log_login_attempt($username, $ip, false);
+        log_login_attempt($userIp, $ip, false);
         return false;
     }
-    if ($ip !== '' && login_rate_limited($username, $ip)) {
-        log_event('login_rate_limited', 'Too many failed attempts', (int)$user['id'], $username);
+    if ($ip !== '' && login_rate_limited($userIp, $ip)) {
+        log_event('login_rate_limited', 'Too many failed attempts', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
         return false;
     }
     if (!verify_otp($user['otp_secret'], $otp)) {
-        log_login_attempt($username, $ip, false);
+        log_login_attempt($userIp, $ip, false);
         return false;
     }
     ensure_session();
     $_SESSION['user_id'] = (int)$user['id'];
-    log_login_attempt($username, $ip, true);
-    log_event('login_success', 'User logged in', (int)$user['id'], $username);
+    log_login_attempt($userIp, $ip, true);
+    log_event('login_success', 'User logged in', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
     return true;
 }
 
@@ -399,18 +449,18 @@ function mikrotik_request(string $method, string $path, ?array $body = null): ar
     return ['success' => $ok, 'data' => $data, 'error' => $ok ? null : ('HTTP ' . $status), 'status' => $status];
 }
 
-function address_list_name(string $username): string
+function address_list_name(string $userIp): string
 {
-    return ADDRESS_LIST_PREFIX . $username;
+    return ADDRESS_LIST_PREFIX . $userIp;
 }
 
-function get_current_address_list_entries(string $username): array
+function get_current_address_list_entries(string $userIp): array
 {
     $resp = mikrotik_request('GET', '/ip/firewall/address-list');
     if (!$resp['success'] || !is_array($resp['data'])) {
         return [];
     }
-    $listName = address_list_name($username);
+    $listName = address_list_name($userIp);
     return array_values(array_filter($resp['data'], function ($entry) use ($listName) {
         return isset($entry['list']) && $entry['list'] === $listName;
     }));
@@ -433,22 +483,22 @@ function current_accesses_by_users(array $users): array
     }
     $data = [];
     foreach ($users as $u) {
-        if (!isset($u['username'])) {
+        if (!isset($u['user_ip'])) {
             continue;
         }
-        $listName = address_list_name($u['username']);
+        $listName = address_list_name($u['user_ip']);
         $entries = array_values(array_filter($resp['data'], function ($entry) use ($listName) {
             return isset($entry['list']) && $entry['list'] === $listName;
         }));
-        $data[$u['username']] = $entries;
+        $data[$u['user_ip']] = $entries;
     }
     return ['success' => true, 'data' => $data];
 }
 
-function add_address_list_entry(string $username, array $network, string $timeout = DEFAULT_TIMEOUT): array
+function add_address_list_entry(string $userIp, array $network, string $timeout = DEFAULT_TIMEOUT): array
 {
     $payload = [
-        'list' => address_list_name($username),
+        'list' => address_list_name($userIp),
         'address' => $network['address'],
         'comment' => $network['name'] ?? 'network',
         'timeout' => $timeout,
@@ -463,13 +513,13 @@ function add_address_list_entry(string $username, array $network, string $timeou
     ];
 }
 
-function remove_address_list_entries(string $username): array
+function remove_address_list_entries(string $userIp): array
 {
     $resp = mikrotik_request('GET', '/ip/firewall/address-list');
     if (!$resp['success'] || !is_array($resp['data'])) {
         return ['success' => false, 'message' => $resp['error'] ?? 'API error', 'status' => $resp['status'] ?? null, 'deleted' => 0, 'total' => 0];
     }
-    $listName = address_list_name($username);
+    $listName = address_list_name($userIp);
     $entries = array_values(array_filter($resp['data'], function ($entry) use ($listName) {
         return isset($entry['list']) && $entry['list'] === $listName && isset($entry['.id']);
     }));
@@ -496,7 +546,7 @@ function remove_address_list_entries(string $username): array
 function apply_networks_to_user(array $user, array $networks, string $timeout = DEFAULT_TIMEOUT): array
 {
     $results = [];
-    $existingAddresses = array_map('strval', array_column(get_current_address_list_entries($user['username']), 'address'));
+    $existingAddresses = array_map('strval', array_column(get_current_address_list_entries($user['user_ip']), 'address'));
     foreach ($networks as $network) {
         if (!user_can_access_network($user, $network)) {
             $results[] = ['network' => $network['name'], 'success' => false, 'message' => 'Insufficient access level'];
@@ -511,7 +561,7 @@ function apply_networks_to_user(array $user, array $networks, string $timeout = 
             ];
             continue;
         }
-        $result = add_address_list_entry($user['username'], $network, $timeout);
+        $result = add_address_list_entry($user['user_ip'], $network, $timeout);
         $results[] = [
             'network' => $network['name'],
             'success' => $result['success'],
@@ -524,12 +574,13 @@ function apply_networks_to_user(array $user, array $networks, string $timeout = 
 
 function save_network(?int $id, string $name, int $accesslevel, string $address): void
 {
+    $level = max(0, min($accesslevel, (int)MAX_ACCESS_LEVEL));
     if ($id === null) {
         $stmt = db()->prepare('INSERT INTO networks (name, accesslevel, address) VALUES (:n, :a, :addr)');
-        $stmt->execute([':n' => $name, ':a' => $accesslevel, ':addr' => $address]);
+        $stmt->execute([':n' => $name, ':a' => $level, ':addr' => $address]);
     } else {
         $stmt = db()->prepare('UPDATE networks SET name = :n, accesslevel = :a, address = :addr WHERE id = :id');
-        $stmt->execute([':n' => $name, ':a' => $accesslevel, ':addr' => $address, ':id' => $id]);
+        $stmt->execute([':n' => $name, ':a' => $level, ':addr' => $address, ':id' => $id]);
     }
 }
 
@@ -539,14 +590,15 @@ function delete_network(int $id): void
     $stmt->execute([':id' => $id]);
 }
 
-function save_user(?int $id, string $name, string $username, string $otp_secret, int $isadmin, int $accesslevel): void
+function save_user(?int $id, string $username, string $userIp, string $otp_secret, int $isadmin, int $accesslevel): void
 {
+    $level = max(0, min($accesslevel, (int)MAX_ACCESS_LEVEL));
     if ($id === null) {
-        $stmt = db()->prepare('INSERT INTO users (name, username, otp_secret, isadmin, accesslevel) VALUES (:n, :u, :o, :i, :a)');
-        $stmt->execute([':n' => $name, ':u' => $username, ':o' => $otp_secret, ':i' => $isadmin, ':a' => $accesslevel]);
+        $stmt = db()->prepare('INSERT INTO users (username, user_ip, otp_secret, isadmin, accesslevel) VALUES (:n, :u, :o, :i, :a)');
+        $stmt->execute([':n' => $username, ':u' => $userIp, ':o' => $otp_secret, ':i' => $isadmin, ':a' => $level]);
     } else {
-        $stmt = db()->prepare('UPDATE users SET name = :n, username = :u, otp_secret = :o, isadmin = :i, accesslevel = :a WHERE id = :id');
-        $stmt->execute([':n' => $name, ':u' => $username, ':o' => $otp_secret, ':i' => $isadmin, ':a' => $accesslevel, ':id' => $id]);
+        $stmt = db()->prepare('UPDATE users SET username = :n, user_ip = :u, otp_secret = :o, isadmin = :i, accesslevel = :a WHERE id = :id');
+        $stmt->execute([':n' => $username, ':u' => $userIp, ':o' => $otp_secret, ':i' => $isadmin, ':a' => $level, ':id' => $id]);
     }
 }
 

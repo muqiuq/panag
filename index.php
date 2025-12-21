@@ -3,7 +3,7 @@ require_once __DIR__ . '/functions.php';
 require_login();
 $user = current_user();
 $defaultNetworks = get_default_networks_for_user($user['id']);
-$currentEntries = get_current_address_list_entries($user['username']);
+$currentEntries = get_current_address_list_entries($user['user_ip']);
 $hour = (int)date('G');
 $greeting = 'Hello';
 $quip = '';
@@ -17,7 +17,7 @@ foreach (GREETING_MESSAGES as $msg) {
 $allUsers = [];
 $accessReport = ['success' => false, 'data' => [], 'error' => ''];
 if ((int)$user['isadmin'] === 1) {
-  $allUsers = db()->query('SELECT id, name, username FROM users ORDER BY username')->fetchAll(PDO::FETCH_ASSOC);
+  $allUsers = db()->query('SELECT id, username, user_ip FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
   $accessReport = current_accesses_by_users($allUsers);
 }
 include __DIR__ . '/header.php';
@@ -29,7 +29,7 @@ include __DIR__ . '/header.php';
   <div class="col-12">
     <div class="card shadow-sm">
       <div class="card-body">
-        <h5 class="card-title mb-1"><?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars($user['name']) ?> (<?= htmlspecialchars($user['username']) ?>)</h5>
+        <h5 class="card-title mb-1"><?= htmlspecialchars($greeting) ?>, <?= htmlspecialchars($user['username']) ?> (<?= htmlspecialchars($user['user_ip']) ?>)</h5>
         <p class="text-muted mb-0"><?= htmlspecialchars($quip) ?></p>
       </div>
     </div>
@@ -90,10 +90,10 @@ include __DIR__ . '/header.php';
                 </thead>
                 <tbody>
                   <?php foreach ($allUsers as $u):
-                    $entries = $accessReport['data'][$u['username']] ?? [];
+                    $entries = $accessReport['data'][$u['user_ip']] ?? [];
                   ?>
                   <tr>
-                    <td><strong><?= htmlspecialchars($u['name']) ?></strong><br><small class="text-muted"><?= htmlspecialchars($u['username']) ?></small></td>
+                    <td><strong><?= htmlspecialchars($u['username']) ?></strong><br><small class="text-muted"><?= htmlspecialchars($u['user_ip']) ?></small></td>
                     <td>
                       <?php if (empty($entries)): ?>
                         <span class="text-muted">None</span>
@@ -106,7 +106,7 @@ include __DIR__ . '/header.php';
                       <?php endif; ?>
                     </td>
                     <td class="text-end">
-                      <button class="btn btn-sm btn-outline-danger revoke-btn" data-user-id="<?= (int)$u['id'] ?>" data-username="<?= htmlspecialchars($u['username']) ?>" <?= empty($entries) ? 'disabled' : '' ?>>Revoke all</button>
+                      <button class="btn btn-sm btn-outline-danger revoke-btn" data-user-id="<?= (int)$u['id'] ?>" data-username="<?= htmlspecialchars($u['user_ip']) ?>" <?= empty($entries) ? 'disabled' : '' ?>>Revoke all</button>
                     </td>
                   </tr>
                   <?php endforeach; ?>

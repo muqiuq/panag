@@ -1,5 +1,11 @@
 <?php
-require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/../functions.php';
+
+if (!defined('ALLOW_TESTS') || !ALLOW_TESTS) {
+    http_response_code(403);
+    echo 'Tests are disabled.';
+    exit;
+}
 
 if (!ALLOW_DEMO_DATA) {
     echo 'Demo data disabled.';
@@ -24,8 +30,8 @@ save_network(null, 'VPN', 5, '172.16.0.0/24');
 save_network(null, 'Datacenter', 8, '192.168.100.0/24');
 
 // Default mappings
-$admin = fetch_user_by_username('10.0.0.1');
-$user = fetch_user_by_username('10.0.0.2');
+$admin = fetch_user_by_user_ip('192.168.70.176');
+$user = fetch_user_by_user_ip('10.0.0.2');
 $nets = db()->query('SELECT id, name FROM networks')->fetchAll(PDO::FETCH_KEY_PAIR);
 if ($admin) {
     set_user_default_networks($admin['id'], array_keys($nets));

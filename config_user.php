@@ -6,22 +6,34 @@ $networks = get_all_networks();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf_token($_POST['csrf_token'] ?? null);
-    $action = $_POST['action'] ?? '';
-    if ($action === 'create') {
-        save_user(null, trim($_POST['name'] ?? ''), trim($_POST['username'] ?? ''), trim($_POST['otp_secret'] ?? ''), isset($_POST['isadmin']) ? 1 : 0, (int)($_POST['accesslevel'] ?? 0));
-    } elseif ($action === 'update') {
-        $userId = (int)($_POST['id'] ?? 0);
-        save_user($userId, trim($_POST['name'] ?? ''), trim($_POST['username'] ?? ''), trim($_POST['otp_secret'] ?? ''), isset($_POST['isadmin']) ? 1 : 0, (int)($_POST['accesslevel'] ?? 0));
-        $networkIds = $_POST['network_ids'][$userId] ?? [];
-        set_user_default_networks($userId, array_map('intval', $networkIds));
-    } elseif ($action === 'delete') {
-        delete_user((int)($_POST['id'] ?? 0));
+  $action = $_POST['action'] ?? '';
+  if ($action === 'create') {
+    save_user(null, trim($_POST['username'] ?? ''), trim($_POST['user_ip'] ?? ''), trim($_POST['otp_secret'] ?? ''), isset($_POST['isadmin']) ? 1 : 0, (int)($_POST['accesslevel'] ?? 0));
+  } elseif ($action === 'update') {
+    $userId = (int)($_POST['id'] ?? 0);
+    save_user($userId, trim($_POST['username'] ?? ''), trim($_POST['user_ip'] ?? ''), trim($_POST['otp_secret'] ?? ''), isset($_POST['isadmin']) ? 1 : 0, (int)($_POST['accesslevel'] ?? 0));
+    $networkIds = $_POST['network_ids'][$userId] ?? [];
+    set_user_default_networks($userId, array_map('intval', $networkIds));
+  } elseif ($action === 'delete') {
+    delete_user((int)($_POST['id'] ?? 0));
+  } elseif ($action === 'impersonate') {
+    $targetId = (int)($_POST['id'] ?? 0);
+    $target = fetch_user_by_id($targetId);
+    $admin = current_user();
+    if ($target && $admin) {
+      ensure_session();
+      $_SESSION['impersonator_id'] = (int)$admin['id'];
+      $_SESSION['user_id'] = (int)$target['id'];
+      log_event('impersonate_start', 'Impersonate as ' . ($target['username'] ?? 'unknown') . ' (' . ($target['user_ip'] ?? '') . ')', (int)$admin['id'], $admin['username'] ?? null, $admin['user_ip'] ?? null);
     }
-    header('Location: ' . url_for('config_user.php'));
+    header('Location: ' . url_for('index.php'));
     exit;
+  }
+  header('Location: ' . url_for('config_user.php'));
+  exit;
 }
 
-$users = db()->query('SELECT * FROM users ORDER BY username')->fetchAll(PDO::FETCH_ASSOC);
+$users = db()->query('SELECT * FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
 $newUserSecret = generate_otp_secret();
 include __DIR__ . '/header.php';
 ?>
@@ -32,12 +44,12 @@ include __DIR__ . '/header.php';
       <input type="hidden" name="action" value="create">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
       <div class="col-md-3">
-        <label class="form-label">Name</label>
-        <input type="text" name="name" class="form-control" required>
+        <label class="form-label">Username (display)</label>
+        <input type="text" name="username" class="form-control" required>
       </div>
       <div class="col-md-3">
-        <label class="form-label">Username (IP)</label>
-        <input type="text" name="username" class="form-control" placeholder="10.0.0.1" required>
+        <label class="form-label">User IP (login)</label>
+        <input type="text" name="user_ip" class="form-control" placeholder="10.0.0.1" required>
       </div>
       <div class="col-md-3">
         <label class="form-label">OTP secret (Base32)</label>
@@ -45,7 +57,7 @@ include __DIR__ . '/header.php';
       </div>
       <div class="col-md-2">
         <label class="form-label">Access level</label>
-        <input type="number" name="accesslevel" class="form-control" min="0" value="0" required>
+        <input type="number" name="accesslevel" class="form-control" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>" value="10" required>
       </div>
       <div class="col-md-1 d-flex align-items-end">
         <div class="form-check">
@@ -63,13 +75,21 @@ include __DIR__ . '/header.php';
 <?php foreach ($users as $u): $defaults = get_user_default_network_ids($u['id']); ?>
   <div class="card shadow-sm mb-3">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span>User: <?= htmlspecialchars($u['username']) ?></span>
-      <form method="post" onsubmit="return confirm('Delete user?');">
-        <input type="hidden" name="action" value="delete">
-        <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
-        <button class="btn btn-sm btn-outline-danger">Delete</button>
-      </form>
+      <span>User: <?= htmlspecialchars($u['username']) ?> (<?= htmlspecialchars($u['user_ip']) ?>)</span>
+      <div class="d-flex gap-2">
+        <form method="post" onsubmit="return confirm('Impersonate this user?');">
+          <input type="hidden" name="action" value="impersonate">
+          <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+          <button class="btn btn-sm btn-outline-primary">Impersonate</button>
+        </form>
+        <form method="post" onsubmit="return confirm('Delete user?');">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </div>
     </div>
     <div class="card-body">
       <form method="post" class="row g-3">
@@ -77,12 +97,12 @@ include __DIR__ . '/header.php';
         <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <div class="col-md-3">
-          <label class="form-label">Name</label>
-          <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($u['name']) ?>" required>
+          <label class="form-label">Username (display)</label>
+          <input type="text" name="username" class="form-control" value="<?= htmlspecialchars($u['username']) ?>" required>
         </div>
         <div class="col-md-3">
-          <label class="form-label">Username (IP)</label>
-          <input type="text" name="username" class="form-control" value="<?= htmlspecialchars($u['username']) ?>" required>
+          <label class="form-label">User IP (login)</label>
+          <input type="text" name="user_ip" class="form-control" value="<?= htmlspecialchars($u['user_ip']) ?>" required>
         </div>
         <div class="col-md-3">
           <label class="form-label">OTP secret (Base32)</label>
@@ -90,7 +110,7 @@ include __DIR__ . '/header.php';
         </div>
         <div class="col-md-2">
           <label class="form-label">Access level</label>
-          <input type="number" name="accesslevel" class="form-control" min="0" value="<?= (int)$u['accesslevel'] ?>" required>
+          <input type="number" name="accesslevel" class="form-control" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>" value="<?= (int)$u['accesslevel'] ?>" required>
         </div>
         <div class="col-md-1 d-flex align-items-end">
           <div class="form-check">
@@ -118,8 +138,8 @@ include __DIR__ . '/header.php';
             <button class="btn btn-success" type="submit">Save</button>
             <button class="btn btn-outline-secondary qr-btn" type="button"
               data-secret="<?= htmlspecialchars($u['otp_secret']) ?>"
-              data-username="<?= htmlspecialchars($u['username']) ?>"
-              data-name="<?= htmlspecialchars($u['name']) ?>">Show OTP QR</button>
+              data-username="<?= htmlspecialchars($u['user_ip']) ?>"
+              data-name="<?= htmlspecialchars($u['username']) ?>">Show OTP QR</button>
           </div>
         </div>
       </form>

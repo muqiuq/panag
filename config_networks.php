@@ -31,7 +31,7 @@ include __DIR__ . '/header.php';
       </div>
       <div class="col-md-3">
         <label class="form-label">Access level</label>
-        <input type="number" name="accesslevel" class="form-control" min="0" value="0" required>
+        <input type="number" name="accesslevel" class="form-control" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>" value="0" required>
       </div>
       <div class="col-md-4">
         <label class="form-label">Address</label>
@@ -62,7 +62,7 @@ include __DIR__ . '/header.php';
             <tr>
               <form method="post">
                 <td><input type="text" name="name" class="form-control form-control-sm" value="<?= htmlspecialchars($n['name']) ?>" required></td>
-                <td><input type="number" name="accesslevel" class="form-control form-control-sm" value="<?= (int)$n['accesslevel'] ?>" required></td>
+                <td><input type="number" name="accesslevel" class="form-control form-control-sm" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>" value="<?= (int)$n['accesslevel'] ?>" required></td>
                 <td><input type="text" name="address" class="form-control form-control-sm" value="<?= htmlspecialchars($n['address']) ?>" required></td>
                 <td class="text-end">
                   <input type="hidden" name="id" value="<?= (int)$n['id'] ?>">

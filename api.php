@@ -39,7 +39,7 @@ function handle_defaultaccess(array $user): void
     $allOk = array_reduce($results, fn($carry, $item) => $carry && $item['success'], true);
     $message = $allOk ? 'Default access granted.' : ('Some networks could not be granted.' . status_suffix($results));
     $names = implode(', ', array_column($nets, 'name'));
-    log_event('default_access_granted', 'Networks: ' . $names, (int)$user['id'], $user['username']);
+    log_event('default_access_granted', 'Networks: ' . $names, (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
     json_response($allOk, $message, ['details' => $results]);
 }
 
@@ -68,13 +68,13 @@ function handle_apply_extended(array $user): void
     $ok = array_reduce($results, fn($carry, $item) => $carry && $item['success'], true);
     $message = $ok ? 'Extended access applied.' : ('Some networks failed.' . status_suffix($results));
     $names = implode(', ', array_column($selected, 'name'));
-    log_event('extended_access_granted', 'Networks: ' . $names, (int)$user['id'], $user['username']);
+    log_event('extended_access_granted', 'Networks: ' . $names, (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
     json_response($ok, $message, ['details' => $results]);
 }
 
 function handle_current_access(array $user): void
 {
-    $entries = get_current_address_list_entries($user['username']);
+    $entries = get_current_address_list_entries($user['user_ip']);
     json_response(true, 'Current accesses fetched.', ['entries' => $entries]);
 }
 
@@ -93,9 +93,9 @@ function handle_revoke_access(array $user): void
     if (!$target) {
         json_response(false, 'User not found.');
     }
-    $result = remove_address_list_entries($target['username']);
-    $msg = $result['success'] ? 'Access revoked.' : ('Failed to revoke: ' . ($result['message'] ?? '')); 
-    log_event('revoke_access', 'Removed ' . ($result['deleted'] ?? 0) . ' of ' . ($result['total'] ?? 0) . ' entries for ' . $target['username'], (int)$target['id'], $target['username']);
+    $result = remove_address_list_entries($target['user_ip']);
+    $msg = $result['success'] ? 'Access revoked.' : ('Failed to revoke: ' . ($result['message'] ?? ''));
+    log_event('revoke_access', 'Removed ' . ($result['deleted'] ?? 0) . ' of ' . ($result['total'] ?? 0) . ' entries for ' . $target['user_ip'], (int)$target['id'], $target['username'] ?? null, $target['user_ip']);
     json_response($result['success'], $msg, ['deleted' => $result['deleted'] ?? 0, 'total' => $result['total'] ?? 0]);
 }
 
