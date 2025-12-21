@@ -1,7 +1,7 @@
 </div>
 <footer class="py-3 border-top mt-4">
 		<div class="container d-flex flex-column flex-md-row justify-content-between align-items-center small text-muted">
-				<span>PANAG (Philipp Admin Network Access Gatekeeper)</span>
+				<span>PANAG (Philipp's Admin Network Access Gatekeeper)</span>
 				<span class="d-flex align-items-center gap-2">
 						<?php if (function_exists('current_user')): $u = current_user(); if ($u && (int)$u['isadmin'] === 1): ?>
 							<a href="<?= htmlspecialchars(url_for('test/index.php')) ?>" class="link-secondary">Tests</a>

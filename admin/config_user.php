@@ -40,16 +40,16 @@ include __DIR__ . '/../lib/header.php';
 <div class="card shadow-sm mb-4">
   <div class="card-header">Add user</div>
   <div class="card-body">
-    <form method="post" class="row g-3">
+    <form method="post" class="row g-3" autocomplete="off">
       <input type="hidden" name="action" value="create">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
       <div class="col-md-3">
         <label class="form-label">Username (display)</label>
-        <input type="text" name="username" class="form-control" required>
+        <input type="text" name="username" class="form-control" required autocomplete="off">
       </div>
       <div class="col-md-3">
         <label class="form-label">User IP (login)</label>
-        <input type="text" name="user_ip" class="form-control" placeholder="10.0.0.1" required>
+        <input type="text" name="user_ip" class="form-control" placeholder="10.0.0.1" required autocomplete="off">
       </div>
       <div class="col-md-3">
         <label class="form-label">OTP secret (Base32)</label>
@@ -95,17 +95,17 @@ include __DIR__ . '/../lib/header.php';
       </div>
     </div>
     <div class="card-body">
-      <form method="post" class="row g-3">
+      <form method="post" class="row g-3" autocomplete="off">
         <input type="hidden" name="action" value="update">
         <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <div class="col-md-3">
           <label class="form-label">Username (display)</label>
-          <input type="text" name="username" class="form-control" value="<?= htmlspecialchars($u['username']) ?>" required>
+          <input type="text" name="username" class="form-control" value="<?= htmlspecialchars($u['username']) ?>" required autocomplete="off">
         </div>
         <div class="col-md-3">
           <label class="form-label">User IP (login)</label>
-          <input type="text" name="user_ip" class="form-control" value="<?= htmlspecialchars($u['user_ip']) ?>" required>
+          <input type="text" name="user_ip" class="form-control" value="<?= htmlspecialchars($u['user_ip']) ?>" required autocomplete="off">
         </div>
         <div class="col-md-3">
           <label class="form-label">OTP secret (Base32)</label>
