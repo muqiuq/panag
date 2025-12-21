@@ -28,6 +28,7 @@ if ((int)$user['isadmin'] === 1) {
   $allUsers = $adminOverview['allUsers'];
   $accessReport = $adminOverview['accessReport'];
   $lastLogins = $adminOverview['lastLogins'];
+  $loggedInToday = $adminOverview['loggedInToday'];
 }
 include __DIR__ . '/lib/header.php';
 ?>

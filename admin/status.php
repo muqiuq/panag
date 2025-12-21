@@ -1,14 +1,17 @@
 <?php
 require_once __DIR__ . '/../lib/functions.php';
+require_once __DIR__ . '/../lib/statistics.php';
 require_admin();
 
 $identityRes = mikrotik_identity();
 $uptimeRes = mikrotik_uptime();
 $peersRes = mikrotik_wireguard_peers();
+$stats = statistics_overview($peersRes);
 $adminOverview = admin_access_overview();
 $allUsers = $adminOverview['allUsers'];
 $accessReport = $adminOverview['accessReport'];
 $lastLogins = $adminOverview['lastLogins'];
+$loggedInToday = $adminOverview['loggedInToday'];
 
 $identityName = $identityRes['data']['name'] ?? null;
 $uptimeValue = $uptimeRes['data']['uptime'] ?? null;
@@ -82,6 +85,62 @@ include __DIR__ . '/../lib/header.php';
 
   <div class="col-12">
     <?php include __DIR__ . '/partials/api_status_card.php'; ?>
+  </div>
+
+  <div class="col-12">
+    <div class="card shadow-sm">
+      <div class="card-header">Statistics</div>
+      <div class="card-body">
+        <div class="row row-cols-1 row-cols-md-3 g-3">
+          <div class="col">
+            <div class="p-3 border rounded bg-light h-100">
+              <div class="text-muted small">Users logged in today</div>
+              <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['logins_today'] ?? 0) ?> / <?= htmlspecialchars($stats['total_users'] ?? 0) ?></div>
+              <?php if (isset($stats['login_coverage_pct'])): ?>
+                <div class="text-muted small">Coverage: <?= htmlspecialchars($stats['login_coverage_pct']) ?>%</div>
+              <?php endif; ?>
+            </div>
+          </div>
+          <div class="col">
+            <div class="p-3 border rounded bg-light h-100">
+              <div class="text-muted small">Login failures today</div>
+              <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['login_fails_today'] ?? 0) ?></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="p-3 border rounded bg-light h-100">
+              <div class="text-muted small">Audit events today</div>
+              <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['audit_events_today'] ?? 0) ?></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="p-3 border rounded bg-light h-100">
+              <div class="text-muted small">Networks configured</div>
+              <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['total_networks'] ?? 0) ?></div>
+            </div>
+          </div>
+          <div class="col">
+            <div class="p-3 border rounded bg-light h-100">
+              <div class="text-muted small">Access list entries</div>
+              <?php if (array_key_exists('accesses_granted', $stats) && $stats['accesses_granted'] !== null): ?>
+                <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['accesses_granted']) ?></div>
+              <?php else: ?>
+                <div class="fs-5 fw-semibold mb-0 text-danger">n/a</div>
+                <?php if (!empty($stats['access_error'])): ?>
+                  <div class="text-danger small"><?= htmlspecialchars($stats['access_error']) ?></div>
+                <?php endif; ?>
+              <?php endif; ?>
+            </div>
+          </div>
+          <div class="col">
+            <div class="p-3 border rounded bg-light h-100">
+              <div class="text-muted small">WireGuard peers</div>
+              <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['wireguard_peers'] ?? 0) ?></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="col-12">

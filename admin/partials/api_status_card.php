@@ -8,10 +8,13 @@ if (!isset($allUsers)) {
 if (!isset($lastLogins)) {
     $lastLogins = [];
 }
+if (!isset($loggedInToday)) {
+  $loggedInToday = [];
+}
 ?>
 <div class="card shadow-sm mt-4">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <span>Mikrotik API status &amp; current accesses</span>
+    <span>Users Overview</span>
     <?php if ($accessReport['success']): ?>
       <span class="badge bg-success">API OK</span>
     <?php else: ?>
@@ -35,6 +38,7 @@ if (!isset($lastLogins)) {
           <table class="table table-sm align-middle mb-0">
             <thead>
               <tr>
+                <th style="width: 40px;">#</th>
                 <th>User</th>
                 <th>Current addresses</th>
                 <th>Last login</th>
@@ -45,8 +49,11 @@ if (!isset($lastLogins)) {
               <?php foreach ($allUsers as $u):
                 $entries = $accessReport['data'][$u['user_ip']] ?? [];
                 $lastLoginTs = $lastLogins[$u['user_ip']] ?? null;
+                $key = $u['id'] !== null ? (string)$u['id'] : ($u['username'] ?? $u['user_ip']);
+                $today = isset($loggedInToday[$key]);
               ?>
               <tr>
+                <td class="text-center" style="font-size: 1.1rem;"><?= $today ? '✅' : '⌛' ?></td>
                 <td><strong><?= htmlspecialchars($u['username']) ?></strong><br><small class="text-muted"><?= htmlspecialchars($u['user_ip']) ?></small></td>
                 <td>
                   <?php if (empty($entries)): ?>

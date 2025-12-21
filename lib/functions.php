@@ -631,6 +631,16 @@ function admin_access_overview(): array
     $allUsers = db()->query('SELECT id, username, user_ip FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
     $accessReport = current_accesses_by_users($allUsers);
     $lastLogins = [];
+    $loggedInToday = [];
+    $midnight = strtotime('today');
+    $stmt = db()->prepare('SELECT DISTINCT COALESCE(CAST(user_id AS TEXT), username, user_ip) AS uid_key FROM audit_log WHERE action = :a AND created_at >= :ts');
+    $stmt->execute([':a' => 'login_success', ':ts' => $midnight]);
+    $keys = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($keys as $k) {
+        if ($k !== null && $k !== '') {
+            $loggedInToday[$k] = true;
+        }
+    }
     foreach ($allUsers as $u) {
         $lastLogins[$u['user_ip']] = last_login_for_user_ip($u['user_ip']);
     }
@@ -638,6 +648,7 @@ function admin_access_overview(): array
         'allUsers' => $allUsers,
         'accessReport' => $accessReport,
         'lastLogins' => $lastLogins,
+        'loggedInToday' => $loggedInToday,
     ];
 }
 

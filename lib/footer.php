@@ -7,7 +7,7 @@
 							<a href="<?= htmlspecialchars(url_for('test/index.php')) ?>" class="link-secondary">Tests</a>
 							<span>|</span>
 						<?php endif; endif; ?>
-						<a href="https://github.com/example/panag" class="link-secondary" target="_blank" rel="noopener">GitHub</a>
+						<a href="https://github.com/muqiuq/panag" class="link-secondary" target="_blank" rel="noopener">GitHub</a>
 						<span>|</span>
 						<span>© Philipp Albrecht &lt;philipp@uisa.ch&gt;</span>
 				</span>
