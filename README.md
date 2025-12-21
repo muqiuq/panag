@@ -1,6 +1,6 @@
-# PANAG - MikroTik access gateway
+# PANAG - lightweight gatekeeper
 
-PANAG is a lightweight PHP/SQLite web app for granting temporary or default access to MikroTik address lists with OTP-protected logins.
+PANAG is a lightweight PHP/SQLite web app that grants temporary or default network access by adding address-list entries on MikroTik RouterOS devices.
 
 ## ⭐ Features
  - OTP login (TOTP) with QR codes for authenticator apps
