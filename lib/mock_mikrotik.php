@@ -97,3 +97,30 @@ function mock_remove_address_list_entries(string $listName): array
         'errors' => [],
     ];
 }
+
+function mock_mikrotik_identity(): array
+{
+    return ['success' => true, 'data' => ['name' => 'mock-router']];
+}
+
+function mock_mikrotik_uptime(): array
+{
+    return ['success' => true, 'data' => ['uptime' => '1w2d3h4m5s']];
+}
+
+function mock_mikrotik_wireguard_peers(): array
+{
+    return [
+        'success' => true,
+        'data' => [
+            [
+                'public-key' => 'mock-public-key-1',
+                'comment' => 'Demo peer 1',
+                'name' => 'peer1',
+                'last-handshake' => '2024-01-01T12:00:00Z',
+                'tx' => 123456,
+                'rx' => 654321,
+            ],
+        ],
+    ];
+}

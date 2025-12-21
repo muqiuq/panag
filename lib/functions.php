@@ -626,6 +626,70 @@ function current_accesses_by_users(array $users): array
     return ['success' => true, 'data' => $data, 'fingerprint' => $resp['fingerprint'] ?? null];
 }
 
+function admin_access_overview(): array
+{
+    $allUsers = db()->query('SELECT id, username, user_ip FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
+    $accessReport = current_accesses_by_users($allUsers);
+    $lastLogins = [];
+    foreach ($allUsers as $u) {
+        $lastLogins[$u['user_ip']] = last_login_for_user_ip($u['user_ip']);
+    }
+    return [
+        'allUsers' => $allUsers,
+        'accessReport' => $accessReport,
+        'lastLogins' => $lastLogins,
+    ];
+}
+
+function mikrotik_identity(): array
+{
+    if (is_mock_mikrotik()) {
+        return mock_mikrotik_identity();
+    }
+    $resp = mikrotik_request('GET', '/system/identity');
+    if (!$resp['success'] || empty($resp['data'])) {
+        return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'data' => null];
+    }
+    // RouterOS REST may return an array of objects or a single object.
+    if (is_array($resp['data']) && array_keys($resp['data']) === array_filter(array_keys($resp['data']), 'is_string')) {
+        $row = $resp['data'];
+    } else {
+        $row = is_array($resp['data']) ? reset($resp['data']) : null;
+    }
+    $name = is_array($row) && isset($row['name']) ? (string)$row['name'] : null;
+    return ['success' => $name !== null, 'error' => $name !== null ? null : 'Identity not found', 'data' => ['name' => $name]];
+}
+
+function mikrotik_uptime(): array
+{
+    if (is_mock_mikrotik()) {
+        return mock_mikrotik_uptime();
+    }
+    $resp = mikrotik_request('GET', '/system/resource');
+    if (!$resp['success'] || empty($resp['data'])) {
+        return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'data' => null];
+    }
+    if (is_array($resp['data']) && array_keys($resp['data']) === array_filter(array_keys($resp['data']), 'is_string')) {
+        $row = $resp['data'];
+    } else {
+        $row = is_array($resp['data']) ? reset($resp['data']) : null;
+    }
+    $uptime = is_array($row) && isset($row['uptime']) ? (string)$row['uptime'] : null;
+    return ['success' => $uptime !== null, 'error' => $uptime !== null ? null : 'Uptime not found', 'data' => ['uptime' => $uptime]];
+}
+
+function mikrotik_wireguard_peers(): array
+{
+    if (is_mock_mikrotik()) {
+        return mock_mikrotik_wireguard_peers();
+    }
+    $resp = mikrotik_request('GET', '/interface/wireguard/peers');
+    if (!$resp['success'] || !is_array($resp['data'])) {
+        return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'data' => []];
+    }
+    return ['success' => true, 'data' => $resp['data']];
+}
+
 function last_login_for_user_ip(string $userIp): ?int
 {
     $stmt = db()->prepare('SELECT created_at FROM audit_log WHERE action = :action AND user_ip = :uip ORDER BY id DESC LIMIT 1');

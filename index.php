@@ -24,11 +24,10 @@ $allUsers = [];
 $accessReport = ['success' => false, 'data' => [], 'error' => '', 'fingerprint' => null];
 $lastLogins = [];
 if ((int)$user['isadmin'] === 1) {
-  $allUsers = db()->query('SELECT id, username, user_ip FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
-  $accessReport = current_accesses_by_users($allUsers);
-  foreach ($allUsers as $u) {
-    $lastLogins[$u['user_ip']] = last_login_for_user_ip($u['user_ip']);
-  }
+  $adminOverview = admin_access_overview();
+  $allUsers = $adminOverview['allUsers'];
+  $accessReport = $adminOverview['accessReport'];
+  $lastLogins = $adminOverview['lastLogins'];
 }
 include __DIR__ . '/lib/header.php';
 ?>
@@ -75,75 +74,7 @@ include __DIR__ . '/lib/header.php';
       </div>
     </div>
     <?php if ((int)$user['isadmin'] === 1): ?>
-    <div class="card shadow-sm mt-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>Mikrotik API status &amp; current accesses</span>
-        <?php if ($accessReport['success']): ?>
-          <span class="badge bg-success">API OK</span>
-        <?php else: ?>
-          <span class="badge bg-danger">API error</span>
-        <?php endif; ?>
-      </div>
-      <div class="card-body">
-        <div id="revokeResult"></div>
-        <?php if (!$accessReport['success']): ?>
-          <div class="alert alert-danger" role="alert">
-            Failed to fetch address list<?= $accessReport['error'] ? ': ' . htmlspecialchars($accessReport['error']) : '' ?>
-            <?php if (!empty($accessReport['fingerprint'])): ?>
-              <div class="small mb-0">Peer fingerprint: <?= htmlspecialchars($accessReport['fingerprint']) ?></div>
-            <?php endif; ?>
-          </div>
-        <?php else: ?>
-          <?php if (empty($allUsers)): ?>
-            <p class="text-muted">No users found.</p>
-          <?php else: ?>
-            <div class="table-responsive">
-              <table class="table table-sm align-middle mb-0">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Current addresses</th>
-                    <th>Last login</th>
-                    <th class="text-end">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <?php foreach ($allUsers as $u):
-                    $entries = $accessReport['data'][$u['user_ip']] ?? [];
-                    $lastLoginTs = $lastLogins[$u['user_ip']] ?? null;
-                  ?>
-                  <tr>
-                    <td><strong><?= htmlspecialchars($u['username']) ?></strong><br><small class="text-muted"><?= htmlspecialchars($u['user_ip']) ?></small></td>
-                    <td>
-                      <?php if (empty($entries)): ?>
-                        <span class="text-muted">None</span>
-                      <?php else: ?>
-                        <ul class="list-unstyled mb-0 small">
-                          <?php foreach ($entries as $entry): ?>
-                            <li><?= htmlspecialchars($entry['address'] ?? 'n/a') ?> <span class="text-muted"><?= htmlspecialchars($entry['timeout'] ?? '') ?></span></li>
-                          <?php endforeach; ?>
-                        </ul>
-                      <?php endif; ?>
-                    </td>
-                    <td class="small text-muted" style="width: 140px;">
-                      <?php if ($lastLoginTs): ?>
-                        <?= htmlspecialchars(date('Y-m-d H:i', $lastLoginTs)) ?>
-                      <?php else: ?>
-                        <span class="text-muted">n/a</span>
-                      <?php endif; ?>
-                    </td>
-                    <td class="text-end">
-                      <button class="btn btn-sm btn-outline-danger revoke-btn" data-user-id="<?= (int)$u['id'] ?>" data-username="<?= htmlspecialchars($u['user_ip']) ?>" <?= empty($entries) ? 'disabled' : '' ?>>Revoke all</button>
-                    </td>
-                  </tr>
-                  <?php endforeach; ?>
-                </tbody>
-              </table>
-            </div>
-          <?php endif; ?>
-        <?php endif; ?>
-      </div>
-    </div>
+      <?php include __DIR__ . '/admin/partials/api_status_card.php'; ?>
     <?php endif; ?>
   </div>
   <div class="col-md-6">

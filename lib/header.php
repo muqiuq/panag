@@ -29,6 +29,7 @@ $basePath = base_path();
             <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('admin/config_user.php')) ?>">Users</a></li>
             <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('admin/logs.php')) ?>">Logs</a></li>
             <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('admin/config_constants.php')) ?>">Config</a></li>
+            <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('admin/status.php')) ?>">Status</a></li>
           <?php endif; ?>
           <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('logout.php')) ?>">Logout</a></li>
         <?php endif; ?>
