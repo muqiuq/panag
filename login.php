@@ -6,12 +6,17 @@ $remoteIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
 $message = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    require_csrf_token($_POST['csrf_token'] ?? null);
     $otp = $_POST['otp'] ?? '';
-    if (login_user($remoteIp, $otp)) {
+    if (login_rate_limited($remoteIp, $remoteIp)) {
+        $message = 'Too many failed attempts. Try again later.';
+        log_event('login_rate_limited', 'Too many failed attempts', null, $remoteIp);
+    } elseif (login_user($remoteIp, $otp, $remoteIp)) {
         header('Location: ' . url_for('index.php'));
         exit;
+    } else {
+        $message = 'Invalid OTP or user not found.';
     }
-    $message = 'Invalid OTP or user not found.';
 }
 ?>
 <!DOCTYPE html>
@@ -32,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="alert alert-danger" role="alert"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
             <form method="post" novalidate>
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
                 <div class="mb-3">
                     <label class="form-label">Username (IP)</label>
                     <input type="text" class="form-control" value="<?= htmlspecialchars($remoteIp) ?>" readonly>

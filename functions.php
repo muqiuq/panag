@@ -36,6 +36,44 @@ function ensure_session(): void
     }
 }
 
+function csrf_token(): string
+{
+    ensure_session();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function verify_csrf_token(?string $token): bool
+{
+    if (!$token) {
+        return false;
+    }
+    ensure_session();
+    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+
+function origin_allowed(): bool
+{
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if ($origin === '') {
+        return true; // No origin header (likely same-origin form)
+    }
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    $originHost = parse_url($origin, PHP_URL_HOST) ?: '';
+    return $host !== '' && strtolower($originHost) === strtolower($host);
+}
+
+function require_csrf_token(?string $token): void
+{
+    if (!origin_allowed() || !verify_csrf_token($token)) {
+        http_response_code(403);
+        echo 'Forbidden';
+        exit;
+    }
+}
+
 function session_expires_at(): ?int
 {
     if (!defined('SESSION_LIFETIME')) {
@@ -85,6 +123,24 @@ function init_db(PDO $pdo): void
         PRIMARY KEY (user_id, network_id),
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
         FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+    )');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS login_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        ip TEXT NOT NULL,
+        success INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+    )');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        action TEXT NOT NULL,
+        details TEXT,
+        ip TEXT,
+        created_at INTEGER NOT NULL
     )');
 }
 
@@ -172,17 +228,82 @@ function generate_otp_secret(int $length = 32): string
     return $secret;
 }
 
-function login_user(string $username, string $otp): bool
+function log_login_attempt(string $username, string $ip, bool $success): void
+{
+    prune_login_attempts();
+    $stmt = db()->prepare('INSERT INTO login_attempts (username, ip, success, created_at) VALUES (:u, :ip, :s, :ts)');
+    $stmt->execute([
+        ':u' => $username,
+        ':ip' => $ip,
+        ':s' => $success ? 1 : 0,
+        ':ts' => time(),
+    ]);
+    if (!$success) {
+        log_event('login_failed', 'Wrong OTP or user not found', null, $username);
+    }
+}
+
+function prune_login_attempts(): void
+{
+    $cutoff = time() - (int)LOGIN_ATTEMPT_TTL;
+    db()->prepare('DELETE FROM login_attempts WHERE created_at < :cutoff')->execute([':cutoff' => $cutoff]);
+}
+
+function prune_audit_log(): void
+{
+    $limit = (int)MAX_AUDIT_LOG_ENTRIES;
+    $count = (int)db()->query('SELECT COUNT(*) FROM audit_log')->fetchColumn();
+    if ($count <= $limit) {
+        return;
+    }
+    $toDelete = $count - $limit;
+    $stmt = db()->prepare('DELETE FROM audit_log WHERE id IN (SELECT id FROM audit_log ORDER BY id ASC LIMIT :lim)');
+    $stmt->bindValue(':lim', $toDelete, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+function log_event(string $action, string $details = '', ?int $userId = null, ?string $username = null): void
+{
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    $stmt = db()->prepare('INSERT INTO audit_log (user_id, username, action, details, ip, created_at) VALUES (:uid, :un, :a, :d, :ip, :ts)');
+    $stmt->execute([
+        ':uid' => $userId,
+        ':un' => $username,
+        ':a' => $action,
+        ':d' => $details,
+        ':ip' => $ip,
+        ':ts' => time(),
+    ]);
+    prune_audit_log();
+}
+function login_rate_limited(string $username, string $ip): bool
+{
+    $windowStart = time() - 3600; // 1 hour window
+    $stmt = db()->prepare('SELECT COUNT(*) FROM login_attempts WHERE success = 0 AND created_at >= :ts AND (username = :u OR ip = :ip)');
+    $stmt->execute([':ts' => $windowStart, ':u' => $username, ':ip' => $ip]);
+    $failures = (int)$stmt->fetchColumn();
+    return $failures >= (int)MAX_LOGIN_ATTEMPTS_PER_HOUR;
+}
+
+function login_user(string $username, string $otp, string $ip = ''): bool
 {
     $user = fetch_user_by_username($username);
     if (!$user) {
+        log_login_attempt($username, $ip, false);
+        return false;
+    }
+    if ($ip !== '' && login_rate_limited($username, $ip)) {
+        log_event('login_rate_limited', 'Too many failed attempts', (int)$user['id'], $username);
         return false;
     }
     if (!verify_otp($user['otp_secret'], $otp)) {
+        log_login_attempt($username, $ip, false);
         return false;
     }
     ensure_session();
     $_SESSION['user_id'] = (int)$user['id'];
+    log_login_attempt($username, $ip, true);
+    log_event('login_success', 'User logged in', (int)$user['id'], $username);
     return true;
 }
 
@@ -342,7 +463,37 @@ function add_address_list_entry(string $username, array $network, string $timeou
     ];
 }
 
-function apply_networks_to_user(array $user, array $networks): array
+function remove_address_list_entries(string $username): array
+{
+    $resp = mikrotik_request('GET', '/ip/firewall/address-list');
+    if (!$resp['success'] || !is_array($resp['data'])) {
+        return ['success' => false, 'message' => $resp['error'] ?? 'API error', 'status' => $resp['status'] ?? null, 'deleted' => 0, 'total' => 0];
+    }
+    $listName = address_list_name($username);
+    $entries = array_values(array_filter($resp['data'], function ($entry) use ($listName) {
+        return isset($entry['list']) && $entry['list'] === $listName && isset($entry['.id']);
+    }));
+    $deleted = 0;
+    $errors = [];
+    foreach ($entries as $entry) {
+        $id = $entry['.id'];
+        $del = mikrotik_request('DELETE', '/ip/firewall/address-list/' . $id);
+        if ($del['success']) {
+            $deleted++;
+        } else {
+            $errors[] = $del['error'] ?? ('Delete failed for ' . $id);
+        }
+    }
+    return [
+        'success' => empty($errors),
+        'message' => empty($errors) ? 'Entries removed.' : implode('; ', array_unique($errors)),
+        'deleted' => $deleted,
+        'total' => count($entries),
+        'errors' => $errors,
+    ];
+}
+
+function apply_networks_to_user(array $user, array $networks, string $timeout = DEFAULT_TIMEOUT): array
 {
     $results = [];
     $existingAddresses = array_map('strval', array_column(get_current_address_list_entries($user['username']), 'address'));
@@ -360,7 +511,7 @@ function apply_networks_to_user(array $user, array $networks): array
             ];
             continue;
         }
-        $result = add_address_list_entry($user['username'], $network, DEFAULT_TIMEOUT);
+        $result = add_address_list_entry($user['username'], $network, $timeout);
         $results[] = [
             'network' => $network['name'],
             'success' => $result['success'],

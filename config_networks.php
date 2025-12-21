@@ -3,6 +3,7 @@ require_once __DIR__ . '/functions.php';
 require_admin();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  require_csrf_token($_POST['csrf_token'] ?? null);
     $action = $_POST['action'] ?? '';
     if ($action === 'create') {
         save_network(null, trim($_POST['name'] ?? ''), (int)($_POST['accesslevel'] ?? 0), trim($_POST['address'] ?? ''));
@@ -23,6 +24,7 @@ include __DIR__ . '/header.php';
   <div class="card-body">
     <form method="post" class="row g-3">
       <input type="hidden" name="action" value="create">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
       <div class="col-md-4">
         <label class="form-label">Name</label>
         <input type="text" name="name" class="form-control" required>
@@ -64,6 +66,7 @@ include __DIR__ . '/header.php';
                 <td><input type="text" name="address" class="form-control form-control-sm" value="<?= htmlspecialchars($n['address']) ?>" required></td>
                 <td class="text-end">
                   <input type="hidden" name="id" value="<?= (int)$n['id'] ?>">
+                  <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
                   <button class="btn btn-sm btn-success" name="action" value="update">Save</button>
                   <button class="btn btn-sm btn-danger" name="action" value="delete" onclick="return confirm('Delete network?');">Delete</button>
                 </td>

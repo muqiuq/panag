@@ -70,6 +70,7 @@ include __DIR__ . '/header.php';
         <?php endif; ?>
       </div>
       <div class="card-body">
+        <div id="revokeResult"></div>
         <?php if (!$accessReport['success']): ?>
           <div class="alert alert-danger" role="alert">
             Failed to fetch address list<?= $accessReport['error'] ? ': ' . htmlspecialchars($accessReport['error']) : '' ?>
@@ -84,6 +85,7 @@ include __DIR__ . '/header.php';
                   <tr>
                     <th>User</th>
                     <th>Current addresses</th>
+                    <th class="text-end">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -102,6 +104,9 @@ include __DIR__ . '/header.php';
                           <?php endforeach; ?>
                         </ul>
                       <?php endif; ?>
+                    </td>
+                    <td class="text-end">
+                      <button class="btn btn-sm btn-outline-danger revoke-btn" data-user-id="<?= (int)$u['id'] ?>" data-username="<?= htmlspecialchars($u['username']) ?>" <?= empty($entries) ? 'disabled' : '' ?>>Revoke all</button>
                     </td>
                   </tr>
                   <?php endforeach; ?>
@@ -145,10 +150,13 @@ include __DIR__ . '/header.php';
 </div>
 <script>
 const BASE_PATH = document.body.dataset.basePath || '';
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || document.body.dataset.csrfToken || '';
 const overlay = document.getElementById('spinnerOverlay');
 const resultBox = document.getElementById('defaultAccessResult');
 const btn = document.getElementById('btnDefaultAccess');
 const currentAccessContainer = document.getElementById('currentAccessContainer');
+const revokeResult = document.getElementById('revokeResult');
+const revokeButtons = document.querySelectorAll('.revoke-btn');
 
 function renderCurrentAccess(entries) {
   if (!currentAccessContainer) return;
@@ -180,7 +188,10 @@ if (btn) {
     overlay.classList.add('active');
     resultBox.innerHTML = '';
     const started = Date.now();
-    fetch(`${BASE_PATH}/api.php?f=defaultaccess`, {method: 'POST'})
+    fetch(`${BASE_PATH}/api.php?f=defaultaccess`, {
+      method: 'POST',
+      headers: {'X-CSRF-Token': CSRF_TOKEN},
+    })
       .then(resp => resp.json())
       .then(data => {
         const elapsed = Date.now() - started;
@@ -205,5 +216,34 @@ if (btn) {
 
 // Keep current list up to date on load.
 refreshCurrentAccess();
+
+revokeButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const uid = btn.dataset.userId;
+    const uname = btn.dataset.username;
+    if (!uid) return;
+    if (!confirm(`Revoke all access for ${uname}?`)) return;
+    revokeResult.innerHTML = '';
+    fetch(`${BASE_PATH}/api.php?f=revokeAccess`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': CSRF_TOKEN,
+      },
+      body: JSON.stringify({user_id: uid})
+    })
+      .then(resp => resp.json())
+      .then(data => {
+        const cls = data.status ? 'alert-success' : 'alert-danger';
+        revokeResult.innerHTML = `<div class="alert ${cls}" role="alert">${data.message || 'Done.'}</div>`;
+        if (data.status) {
+          setTimeout(() => window.location.reload(), 600);
+        }
+      })
+      .catch(() => {
+        revokeResult.innerHTML = '<div class="alert alert-danger" role="alert">Revoke request failed.</div>';
+      });
+  });
+});
 </script>
 <?php include __DIR__ . '/footer.php'; ?>

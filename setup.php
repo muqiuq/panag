@@ -14,6 +14,7 @@ $messageClass = 'info';
 $flagCreated = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  require_csrf_token($_POST['csrf_token'] ?? null);
     $name = trim($_POST['name'] ?? '');
     $otp = trim($_POST['otp_secret'] ?? '');
     $access = (int)($_POST['accesslevel'] ?? 10);
@@ -61,6 +62,7 @@ include __DIR__ . '/header.php';
           <div class="alert alert-<?= htmlspecialchars($messageClass) ?>" role="alert"><?= htmlspecialchars($message) ?></div>
         <?php endif; ?>
         <form method="post" novalidate>
+          <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
           <div class="mb-3">
             <label class="form-label">Detected username (IP)</label>
             <input type="text" class="form-control" value="<?= htmlspecialchars($remoteIp) ?>" readonly>

@@ -11,11 +11,12 @@ $basePath = base_path();
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars(APP_NAME) ?></title>
+    <meta name="csrf-token" content="<?= htmlspecialchars(csrf_token()) ?>">
     <link rel="icon" type="image/svg+xml" href="<?= htmlspecialchars(url_for('favicon.svg')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('css/main.css')) ?>">
 </head>
-<body data-base-path="<?= htmlspecialchars($basePath) ?>">
+  <body data-base-path="<?= htmlspecialchars($basePath) ?>" data-csrf-token="<?= htmlspecialchars(csrf_token()) ?>">
 <nav class="navbar navbar-expand-lg navbar-dark bg-danger mb-4">
   <div class="container-fluid">
     <a class="navbar-brand" href="<?= htmlspecialchars(url_for('index.php')) ?>"><?= htmlspecialchars(APP_NAME) ?></a>
@@ -26,6 +27,7 @@ $basePath = base_path();
           <?php if ((int)$user['isadmin'] === 1): ?>
             <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('config_networks.php')) ?>">Networks</a></li>
             <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('config_user.php')) ?>">Users</a></li>
+            <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('logs.php')) ?>">Logs</a></li>
           <?php endif; ?>
           <li class="nav-item"><a class="nav-link fw-semibold" href="<?= htmlspecialchars(url_for('logout.php')) ?>">Logout</a></li>
         <?php endif; ?>

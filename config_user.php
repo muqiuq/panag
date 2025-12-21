@@ -5,6 +5,7 @@ require_admin();
 $networks = get_all_networks();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  require_csrf_token($_POST['csrf_token'] ?? null);
     $action = $_POST['action'] ?? '';
     if ($action === 'create') {
         save_user(null, trim($_POST['name'] ?? ''), trim($_POST['username'] ?? ''), trim($_POST['otp_secret'] ?? ''), isset($_POST['isadmin']) ? 1 : 0, (int)($_POST['accesslevel'] ?? 0));
@@ -29,6 +30,7 @@ include __DIR__ . '/header.php';
   <div class="card-body">
     <form method="post" class="row g-3">
       <input type="hidden" name="action" value="create">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
       <div class="col-md-3">
         <label class="form-label">Name</label>
         <input type="text" name="name" class="form-control" required>
@@ -65,6 +67,7 @@ include __DIR__ . '/header.php';
       <form method="post" onsubmit="return confirm('Delete user?');">
         <input type="hidden" name="action" value="delete">
         <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <button class="btn btn-sm btn-outline-danger">Delete</button>
       </form>
     </div>
@@ -72,6 +75,7 @@ include __DIR__ . '/header.php';
       <form method="post" class="row g-3">
         <input type="hidden" name="action" value="update">
         <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
         <div class="col-md-3">
           <label class="form-label">Name</label>
           <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($u['name']) ?>" required>

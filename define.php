@@ -17,9 +17,13 @@ const MIKROTIK_PASSWORD = 'Hallo1234..x';
 // Address list naming
 const ADDRESS_LIST_PREFIX = 'Whitelist ';
 const DEFAULT_TIMEOUT = '01:00:00';
+const EXTENDED_TIMEOUT = '00:15:00';
 
 // Session lifetime (seconds)
 const SESSION_LIFETIME = 8 * 60 * 60; // 8 hours
+const MAX_LOGIN_ATTEMPTS_PER_HOUR = 5;
+const LOGIN_ATTEMPT_TTL = 7 * 24 * 60 * 60; // keep login attempts for 7 days
+const MAX_AUDIT_LOG_ENTRIES = 10000;
 
 // Time-based greetings (hour ranges are start inclusive, end exclusive, 24h)
 const GREETING_MESSAGES = [

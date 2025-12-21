@@ -60,6 +60,7 @@ include __DIR__ . '/header.php';
 </div>
 <script>
 const BASE_PATH = document.body.dataset.basePath || '';
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || document.body.dataset.csrfToken || '';
 const overlay = document.getElementById('spinnerOverlay');
 const form = document.getElementById('extendedForm');
 const resultBox = document.getElementById('resultBox');
@@ -102,7 +103,10 @@ form.addEventListener('submit', (e) => {
   const ids = data.getAll('network_ids[]');
   fetch(`${BASE_PATH}/api.php?f=applyExtended`, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': CSRF_TOKEN,
+    },
     body: JSON.stringify({network_ids: ids})
   })
     .then(r => r.json())
