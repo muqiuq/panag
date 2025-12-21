@@ -1,0 +1,11 @@
+{
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        "match": ".*",
+        "isShellCommand": true,
+        "cmd": "${workspaceFolder}/sync_panag.sh"
+      }
+    ]
+  }
+}
