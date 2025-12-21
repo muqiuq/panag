@@ -23,14 +23,6 @@ PANAG is a lightweight PHP/SQLite web app that grants temporary or default netwo
 ## 🚧 Still in development
 This project is currently in development and **not yet ready for production use**. If you want to contribute, we welcome issues and pull requests.
 
-## 🔧 Quick start
-1) Requirements: PHP 8+, SQLite enabled, MikroTik REST API reachable, web server configured for PHP.
-2) Copy the repo to your server (or use the provided `sync_panag.sh` for rsync-based deploys).
-3) Configure settings in `define.php` (DB path, MikroTik REST credentials, address list prefix, OTP issuer, session lifetime).
-4) Install local assets: run `./fetch_dependencies.sh` (downloads Bootstrap and kjua locally).
-5) Initialize/setup: open `/setup.php` in your browser to create the first admin user and seed demo data if desired.
-6) Login at `/login.php`, then use the dashboard to grant default access or visit Extended Access for on-demand entries.
-
 ## 📦 Credits
 - QR code rendering uses [kjua](https://github.com/lrsjng/kjua) by Lars Jung (bundled locally in `js/kjua.min.js`).
 
