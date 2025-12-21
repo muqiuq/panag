@@ -3,6 +3,12 @@ require_once __DIR__ . '/lib/functions.php';
 require_login();
 $user = current_user();
 $defaultNetworks = get_default_networks_for_user($user['id']);
+$eligibleDefaultCount = 0;
+foreach ($defaultNetworks as $dn) {
+  if (user_can_access_network($user, $dn)) {
+    $eligibleDefaultCount++;
+  }
+}
 $currentEntries = get_current_address_list_entries($user['user_ip']);
 $hour = (int)date('G');
 $greeting = 'Hello';
@@ -16,9 +22,13 @@ foreach (GREETING_MESSAGES as $msg) {
 }
 $allUsers = [];
 $accessReport = ['success' => false, 'data' => [], 'error' => ''];
+$lastLogins = [];
 if ((int)$user['isadmin'] === 1) {
   $allUsers = db()->query('SELECT id, username, user_ip FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
   $accessReport = current_accesses_by_users($allUsers);
+  foreach ($allUsers as $u) {
+    $lastLogins[$u['user_ip']] = last_login_for_user_ip($u['user_ip']);
+  }
 }
 include __DIR__ . '/lib/header.php';
 ?>
@@ -44,18 +54,23 @@ include __DIR__ . '/lib/header.php';
           <p class="text-muted mb-3">No default networks configured for you.</p>
         <?php else: ?>
           <ul class="list-group mb-3">
-            <?php foreach ($defaultNetworks as $net): ?>
+            <?php foreach ($defaultNetworks as $net): 
+              $eligible = user_can_access_network($user, $net);
+            ?>
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 <span>
                   <strong><?= htmlspecialchars($net['name']) ?></strong><br>
                   <small class="text-muted"><?= htmlspecialchars($net['address']) ?></small>
+                  <?php if (!$eligible): ?>
+                    <div class="text-danger small mt-1">Requires L<?= (int)$net['accesslevel'] ?> (you are L<?= (int)$user['accesslevel'] ?>)</div>
+                  <?php endif; ?>
                 </span>
-                <span class="badge bg-secondary">L<?= (int)$net['accesslevel'] ?></span>
+                <span class="badge <?= $eligible ? 'bg-secondary' : 'bg-danger' ?>">L<?= (int)$net['accesslevel'] ?></span>
               </li>
             <?php endforeach; ?>
           </ul>
         <?php endif; ?>
-        <button class="btn btn-primary" id="btnDefaultAccess" <?= empty($defaultNetworks) ? 'disabled' : '' ?>>Grant default access</button>
+        <button class="btn btn-primary" id="btnDefaultAccess" <?= $eligibleDefaultCount === 0 ? 'disabled' : '' ?>>Grant default access</button>
         <div class="mt-3" id="defaultAccessResult"></div>
       </div>
     </div>
@@ -85,12 +100,14 @@ include __DIR__ . '/lib/header.php';
                   <tr>
                     <th>User</th>
                     <th>Current addresses</th>
+                    <th>Last login</th>
                     <th class="text-end">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   <?php foreach ($allUsers as $u):
                     $entries = $accessReport['data'][$u['user_ip']] ?? [];
+                    $lastLoginTs = $lastLogins[$u['user_ip']] ?? null;
                   ?>
                   <tr>
                     <td><strong><?= htmlspecialchars($u['username']) ?></strong><br><small class="text-muted"><?= htmlspecialchars($u['user_ip']) ?></small></td>
@@ -103,6 +120,13 @@ include __DIR__ . '/lib/header.php';
                             <li><?= htmlspecialchars($entry['address'] ?? 'n/a') ?> <span class="text-muted"><?= htmlspecialchars($entry['timeout'] ?? '') ?></span></li>
                           <?php endforeach; ?>
                         </ul>
+                      <?php endif; ?>
+                    </td>
+                    <td class="small text-muted" style="width: 140px;">
+                      <?php if ($lastLoginTs): ?>
+                        <?= htmlspecialchars(date('Y-m-d H:i', $lastLoginTs)) ?>
+                      <?php else: ?>
+                        <span class="text-muted">n/a</span>
                       <?php endif; ?>
                     </td>
                     <td class="text-end">
@@ -123,7 +147,8 @@ include __DIR__ . '/lib/header.php';
     <div class="card shadow-sm mb-4">
       <div class="card-header">Current granted accesses</div>
       <div class="card-body">
-        <div id="currentAccessContainer">
+        <div id="currentAccessResult"></div>
+        <div id="currentAccessContainer" class="mb-3">
           <?php if (empty($currentEntries)): ?>
             <p class="text-muted">No active address list entries.</p>
           <?php else: ?>
@@ -137,6 +162,7 @@ include __DIR__ . '/lib/header.php';
             </ul>
           <?php endif; ?>
         </div>
+        <button class="btn btn-outline-danger" id="btnSelfRevoke" <?= empty($currentEntries) ? 'disabled' : '' ?>>Revoke my access</button>
       </div>
     </div>
     <div class="card shadow-sm card-warning">
@@ -155,8 +181,10 @@ const overlay = document.getElementById('spinnerOverlay');
 const resultBox = document.getElementById('defaultAccessResult');
 const btn = document.getElementById('btnDefaultAccess');
 const currentAccessContainer = document.getElementById('currentAccessContainer');
+const currentAccessResult = document.getElementById('currentAccessResult');
 const revokeResult = document.getElementById('revokeResult');
 const revokeButtons = document.querySelectorAll('.revoke-btn');
+const selfRevokeBtn = document.getElementById('btnSelfRevoke');
 
 function renderCurrentAccess(entries) {
   if (!currentAccessContainer) return;
@@ -178,6 +206,9 @@ function refreshCurrentAccess() {
     .then(data => {
       if (data.status && data.entries) {
         renderCurrentAccess(data.entries);
+        if (selfRevokeBtn) {
+          selfRevokeBtn.disabled = !data.entries || data.entries.length === 0;
+        }
       }
     })
     .catch(() => {});
@@ -245,5 +276,30 @@ revokeButtons.forEach(btn => {
       });
   });
 });
+
+if (selfRevokeBtn) {
+  selfRevokeBtn.addEventListener('click', () => {
+    if (!confirm('Remove all of your current accesses?')) return;
+    currentAccessResult.innerHTML = '';
+    fetch(`${BASE_PATH}/api.php?f=revokeMine`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': CSRF_TOKEN,
+      },
+    })
+      .then(resp => resp.json())
+      .then(data => {
+        const cls = data.status ? 'alert-success' : 'alert-danger';
+        currentAccessResult.innerHTML = `<div class="alert ${cls}" role="alert">${data.message || 'Done.'}</div>`;
+        if (data.status) {
+          refreshCurrentAccess();
+        }
+      })
+      .catch(() => {
+        currentAccessResult.innerHTML = '<div class="alert alert-danger" role="alert">Revoke request failed.</div>';
+      });
+  });
+}
 </script>
 <?php include __DIR__ . '/lib/footer.php'; ?>

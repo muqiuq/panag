@@ -195,6 +195,14 @@ function init_db(PDO $pdo): void
         created_at INTEGER NOT NULL
     )');
 
+    $pdo->exec('CREATE TABLE IF NOT EXISTS otp_used (
+        user_id INTEGER NOT NULL,
+        otp_counter INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (user_id, otp_counter),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )');
+
 }
 
 function is_db_empty(PDO $pdo): bool
@@ -225,19 +233,20 @@ function fetch_user_by_id(int $id): ?array
     return $row ?: null;
 }
 
-function verify_otp(string $secret, string $code): bool
+function verify_otp_with_counter(string $secret, string $code): array
 {
     $code = trim($code);
     if (!preg_match('/^\d{6}$/', $code)) {
-        return false;
+        return [false, null];
     }
     $time = time();
     for ($i = -1; $i <= 1; $i++) {
+        $counter = intdiv($time + ($i * OTP_STEP), OTP_STEP);
         if (totp($secret, $time + ($i * OTP_STEP)) === $code) {
-            return true;
+            return [true, $counter];
         }
     }
-    return false;
+    return [false, null];
 }
 
 function totp(string $base32Secret, int $time): string
@@ -296,6 +305,27 @@ function log_login_attempt(string $userIp, string $ip, bool $success): void
     }
 }
 
+function otp_counter_used(int $userId, int $counter): bool
+{
+    $stmt = db()->prepare('SELECT 1 FROM otp_used WHERE user_id = :uid AND otp_counter = :ctr LIMIT 1');
+    $stmt->execute([':uid' => $userId, ':ctr' => $counter]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function mark_otp_counter_used(int $userId, int $counter): void
+{
+    prune_otp_counters();
+    $stmt = db()->prepare('INSERT OR IGNORE INTO otp_used (user_id, otp_counter, created_at) VALUES (:uid, :ctr, :ts)');
+    $stmt->execute([':uid' => $userId, ':ctr' => $counter, ':ts' => time()]);
+}
+
+function prune_otp_counters(): void
+{
+    // Keep only recent counters (~10 minutes worth) to prevent unbounded growth.
+    $cutoff = time() - (OTP_STEP * 20);
+    db()->prepare('DELETE FROM otp_used WHERE created_at < :cutoff')->execute([':cutoff' => $cutoff]);
+}
+
 function prune_login_attempts(): void
 {
     $cutoff = time() - (int)LOGIN_ATTEMPT_TTL;
@@ -350,9 +380,18 @@ function login_user(string $userIp, string $otp, string $ip = ''): bool
         log_event('login_rate_limited', 'Too many failed attempts', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
         return false;
     }
-    if (!verify_otp($user['otp_secret'], $otp)) {
+    [$otpOk, $counter] = verify_otp_with_counter($user['otp_secret'], $otp);
+    if (!$otpOk) {
         log_login_attempt($userIp, $ip, false);
         return false;
+    }
+    if ($counter !== null && otp_counter_used((int)$user['id'], $counter)) {
+        log_login_attempt($userIp, $ip, false);
+        log_event('otp_reuse_blocked', 'Attempted reused OTP', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+        return false;
+    }
+    if ($counter !== null) {
+        mark_otp_counter_used((int)$user['id'], $counter);
     }
     ensure_session();
     $_SESSION['user_id'] = (int)$user['id'];
@@ -458,9 +497,17 @@ function address_list_name(string $userIp): string
     return ADDRESS_LIST_PREFIX . $userIp;
 }
 
+function is_valid_address_list_name(string $listName): bool
+{
+    return strncmp($listName, ADDRESS_LIST_PREFIX, strlen(ADDRESS_LIST_PREFIX)) === 0;
+}
+
 function get_current_address_list_entries(string $userIp): array
 {
     $listName = address_list_name($userIp);
+    if (!is_valid_address_list_name($listName)) {
+        return [];
+    }
     if (is_mock_mikrotik()) {
         return mock_get_current_address_list_entries($listName);
     }
@@ -482,7 +529,10 @@ function get_all_address_list_entries(): array
     if (!$resp['success'] || !is_array($resp['data'])) {
         return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'status' => $resp['status'] ?? null, 'data' => []];
     }
-    return ['success' => true, 'data' => $resp['data']];
+    $filtered = array_values(array_filter($resp['data'], function ($entry) {
+        return isset($entry['list']) && is_valid_address_list_name((string)$entry['list']);
+    }));
+    return ['success' => true, 'data' => $filtered];
 }
 
 function current_accesses_by_users(array $users): array
@@ -505,9 +555,20 @@ function current_accesses_by_users(array $users): array
     return ['success' => true, 'data' => $data];
 }
 
+function last_login_for_user_ip(string $userIp): ?int
+{
+    $stmt = db()->prepare('SELECT created_at FROM audit_log WHERE action = :action AND user_ip = :uip ORDER BY id DESC LIMIT 1');
+    $stmt->execute([':action' => 'login_success', ':uip' => $userIp]);
+    $val = $stmt->fetchColumn();
+    return $val !== false ? (int)$val : null;
+}
+
 function add_address_list_entry(string $userIp, array $network, string $timeout = DEFAULT_TIMEOUT): array
 {
     $listName = address_list_name($userIp);
+    if (!is_valid_address_list_name($listName)) {
+        return ['success' => false, 'status' => null, 'message' => 'Invalid address list'];
+    }
     if (is_mock_mikrotik()) {
         return mock_add_address_list_entry($listName, $network, $timeout);
     }
@@ -530,6 +591,9 @@ function add_address_list_entry(string $userIp, array $network, string $timeout 
 function remove_address_list_entries(string $userIp): array
 {
     $listName = address_list_name($userIp);
+    if (!is_valid_address_list_name($listName)) {
+        return ['success' => false, 'message' => 'Invalid address list', 'status' => null, 'deleted' => 0, 'total' => 0];
+    }
     if (is_mock_mikrotik()) {
         return mock_remove_address_list_entries($listName);
     }

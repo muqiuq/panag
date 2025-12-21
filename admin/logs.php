@@ -4,23 +4,41 @@ require_admin();
 
 $search = trim($_GET['q'] ?? '');
 $actionFilter = trim($_GET['action'] ?? '');
+$page = max(1, (int)($_GET['page'] ?? 1));
+$perPage = 100;
+$offset = ($page - 1) * $perPage;
 
 $params = [];
-$sql = 'SELECT * FROM audit_log WHERE 1=1';
+$where = 'WHERE 1=1';
 if ($actionFilter !== '') {
-    $sql .= ' AND action = :action';
-    $params[':action'] = $actionFilter;
+  $where .= ' AND action = :action';
+  $params[':action'] = $actionFilter;
 }
 if ($search !== '') {
-    $sql .= ' AND (details LIKE :q OR username LIKE :q2 OR action LIKE :q3)';
-    $like = '%' . $search . '%';
-    $params[':q'] = $like;
-    $params[':q2'] = $like;
-    $params[':q3'] = $like;
+  $where .= ' AND (details LIKE :q OR username LIKE :q2 OR action LIKE :q3)';
+  $like = '%' . $search . '%';
+  $params[':q'] = $like;
+  $params[':q2'] = $like;
+  $params[':q3'] = $like;
 }
-$sql .= ' ORDER BY id DESC LIMIT 200';
-$stmt = db()->prepare($sql);
-$stmt->execute($params);
+
+$countStmt = db()->prepare('SELECT COUNT(*) FROM audit_log ' . $where);
+$countStmt->execute($params);
+$total = (int)$countStmt->fetchColumn();
+$totalPages = max(1, (int)ceil($total / $perPage));
+if ($page > $totalPages) {
+  $page = $totalPages;
+  $offset = ($page - 1) * $perPage;
+}
+
+$dataSql = 'SELECT * FROM audit_log ' . $where . ' ORDER BY id DESC LIMIT :limit OFFSET :offset';
+$stmt = db()->prepare($dataSql);
+foreach ($params as $k => $v) {
+  $stmt->bindValue($k, $v);
+}
+$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $actionStmt = db()->query('SELECT DISTINCT action FROM audit_log ORDER BY action');
@@ -31,7 +49,7 @@ include __DIR__ . '/../lib/header.php';
 <div class="card shadow-sm mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span>Audit log</span>
-    <span class="text-muted small">Showing latest 200 entries</span>
+    <span class="text-muted small">Page <?= (int)$page ?> of <?= (int)$totalPages ?> (<?= (int)$total ?> entries)</span>
   </div>
   <div class="card-body">
     <form class="row g-2 mb-3" method="get">
@@ -51,6 +69,25 @@ include __DIR__ . '/../lib/header.php';
       </div>
     </form>
 
+    <nav aria-label="Audit log pagination" class="mb-3">
+      <ul class="pagination mb-0">
+        <?php
+          $queryBase = ['q' => $search, 'action' => $actionFilter];
+          $prevPage = max(1, $page - 1);
+          $nextPage = min($totalPages, $page + 1);
+          $prevQuery = http_build_query(array_merge($queryBase, ['page' => $prevPage]));
+          $nextQuery = http_build_query(array_merge($queryBase, ['page' => $nextPage]));
+        ?>
+        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+          <a class="page-link" href="?<?= htmlspecialchars($prevQuery) ?>" aria-label="Previous">&laquo;</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">Page <?= (int)$page ?> / <?= (int)$totalPages ?></span></li>
+        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
+          <a class="page-link" href="?<?= htmlspecialchars($nextQuery) ?>" aria-label="Next">&raquo;</a>
+        </li>
+      </ul>
+    </nav>
+
     <div class="table-responsive">
       <table class="table table-sm align-middle">
         <thead>
@@ -65,7 +102,7 @@ include __DIR__ . '/../lib/header.php';
         </thead>
         <tbody>
           <?php if (empty($rows)): ?>
-            <tr><td colspan="5" class="text-muted">No entries.</td></tr>
+            <tr><td colspan="6" class="text-muted">No entries.</td></tr>
           <?php else: ?>
             <?php foreach ($rows as $row): ?>
               <tr>

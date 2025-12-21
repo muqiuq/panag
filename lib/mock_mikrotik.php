@@ -41,6 +41,9 @@ function mock_save_address_list(array $items): void
 
 function mock_get_current_address_list_entries(string $listName): array
 {
+    if (function_exists('is_valid_address_list_name') && !is_valid_address_list_name($listName)) {
+        return [];
+    }
     $all = mock_load_address_list();
     return array_values(array_filter($all, function ($entry) use ($listName) {
         return isset($entry['list']) && $entry['list'] === $listName;
@@ -54,6 +57,9 @@ function mock_get_all_address_list_entries(): array
 
 function mock_add_address_list_entry(string $listName, array $network, string $timeout): array
 {
+    if (function_exists('is_valid_address_list_name') && !is_valid_address_list_name($listName)) {
+        return ['success' => false, 'status' => null, 'message' => 'Invalid address list'];
+    }
     $all = mock_load_address_list();
     $existing = array_filter($all, function ($item) use ($listName, $network) {
         return ($item['list'] ?? '') === $listName && ($item['address'] ?? '') === ($network['address'] ?? '');
@@ -74,6 +80,9 @@ function mock_add_address_list_entry(string $listName, array $network, string $t
 
 function mock_remove_address_list_entries(string $listName): array
 {
+    if (function_exists('is_valid_address_list_name') && !is_valid_address_list_name($listName)) {
+        return ['success' => false, 'message' => 'Invalid address list', 'deleted' => 0, 'total' => 0, 'errors' => []];
+    }
     $all = mock_load_address_list();
     $remaining = array_values(array_filter($all, function ($entry) use ($listName) {
         return ($entry['list'] ?? '') !== $listName;

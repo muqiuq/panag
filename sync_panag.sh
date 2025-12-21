@@ -13,6 +13,7 @@ fi
 rsync -avh \
   --exclude ".git/" \
   --exclude "*.DS_Store" \
+  --exclude "node_modules/" \
   "$SRC" "$DEST"
 
 echo "Sync complete: $SRC -> $DEST"

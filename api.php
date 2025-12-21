@@ -35,11 +35,30 @@ function handle_defaultaccess(array $user): void
     if (empty($nets)) {
         json_response(false, 'No default networks configured.');
     }
-    $results = apply_networks_to_user($user, $nets, DEFAULT_TIMEOUT);
+    $eligible = [];
+    $skipped = [];
+    foreach ($nets as $net) {
+        if (user_can_access_network($user, $net)) {
+            $eligible[] = $net;
+        } else {
+            $skipped[] = $net['name'] ?? 'network';
+        }
+    }
+    if (empty($eligible)) {
+        json_response(false, 'No default networks eligible for your access level.');
+    }
+    $results = apply_networks_to_user($user, $eligible, DEFAULT_TIMEOUT);
     $allOk = array_reduce($results, fn($carry, $item) => $carry && $item['success'], true);
     $message = $allOk ? 'Default access granted.' : ('Some networks could not be granted.' . status_suffix($results));
-    $names = implode(', ', array_column($nets, 'name'));
-    log_event('default_access_granted', 'Networks: ' . $names, (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+    if (!empty($skipped)) {
+        $message .= ' Skipped: ' . implode(', ', $skipped) . '.';
+    }
+    $names = implode(', ', array_column($eligible, 'name'));
+    $logMsg = 'Networks: ' . $names;
+    if (!empty($skipped)) {
+        $logMsg .= ' | skipped: ' . implode(', ', $skipped);
+    }
+    log_event('default_access_granted', $logMsg, (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
     json_response($allOk, $message, ['details' => $results]);
 }
 
@@ -76,6 +95,14 @@ function handle_current_access(array $user): void
 {
     $entries = get_current_address_list_entries($user['user_ip']);
     json_response(true, 'Current accesses fetched.', ['entries' => $entries]);
+}
+
+function handle_revoke_self(array $user): void
+{
+    $result = remove_address_list_entries($user['user_ip']);
+    $msg = $result['success'] ? 'Your access was revoked.' : ('Failed to revoke: ' . ($result['message'] ?? ''));
+    log_event('self_revoke', 'Removed ' . ($result['deleted'] ?? 0) . ' of ' . ($result['total'] ?? 0) . ' entries for own IP', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+    json_response($result['success'], $msg, ['deleted' => $result['deleted'] ?? 0, 'total' => $result['total'] ?? 0]);
 }
 
 function handle_revoke_access(array $user): void
@@ -123,6 +150,15 @@ switch ($action) {
 
     case 'currentAccess':
         handle_current_access($user);
+        break;
+
+    case 'revokeMine':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            json_response(false, 'Method not allowed.');
+        }
+        require_csrf_token($csrfHeader);
+        handle_revoke_self($user);
         break;
 
     case 'revokeAccess':
