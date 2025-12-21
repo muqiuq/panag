@@ -21,7 +21,7 @@ foreach (GREETING_MESSAGES as $msg) {
   }
 }
 $allUsers = [];
-$accessReport = ['success' => false, 'data' => [], 'error' => ''];
+$accessReport = ['success' => false, 'data' => [], 'error' => '', 'fingerprint' => null];
 $lastLogins = [];
 if ((int)$user['isadmin'] === 1) {
   $allUsers = db()->query('SELECT id, username, user_ip FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
@@ -89,6 +89,9 @@ include __DIR__ . '/lib/header.php';
         <?php if (!$accessReport['success']): ?>
           <div class="alert alert-danger" role="alert">
             Failed to fetch address list<?= $accessReport['error'] ? ': ' . htmlspecialchars($accessReport['error']) : '' ?>
+            <?php if (!empty($accessReport['fingerprint'])): ?>
+              <div class="small mb-0">Peer fingerprint: <?= htmlspecialchars($accessReport['fingerprint']) ?></div>
+            <?php endif; ?>
           </div>
         <?php else: ?>
           <?php if (empty($allUsers)): ?>

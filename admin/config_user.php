@@ -53,7 +53,10 @@ include __DIR__ . '/../lib/header.php';
       </div>
       <div class="col-md-3">
         <label class="form-label">OTP secret (Base32)</label>
-        <input type="text" name="otp_secret" class="form-control" value="<?= htmlspecialchars($newUserSecret) ?>" required>
+        <div class="input-group">
+          <input type="password" name="otp_secret" id="otpSecretNew" class="form-control otp-secret" value="<?= htmlspecialchars($newUserSecret) ?>" required autocomplete="new-password">
+          <button class="btn btn-outline-secondary otp-toggle" type="button" data-target="otpSecretNew">Show</button>
+        </div>
       </div>
       <div class="col-md-2">
         <label class="form-label">Access level</label>
@@ -106,7 +109,11 @@ include __DIR__ . '/../lib/header.php';
         </div>
         <div class="col-md-3">
           <label class="form-label">OTP secret (Base32)</label>
-          <input type="text" name="otp_secret" class="form-control" value="<?= htmlspecialchars($u['otp_secret']) ?>" required>
+          <?php $otpId = 'otpSecret' . (int)$u['id']; ?>
+          <div class="input-group">
+            <input type="password" name="otp_secret" id="<?= $otpId ?>" class="form-control otp-secret" value="<?= htmlspecialchars($u['otp_secret']) ?>" required autocomplete="new-password">
+            <button class="btn btn-outline-secondary otp-toggle" type="button" data-target="<?= $otpId ?>">Show</button>
+          </div>
         </div>
         <div class="col-md-2">
           <label class="form-label">Access level</label>
@@ -167,6 +174,7 @@ include __DIR__ . '/../lib/header.php';
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const buttons = document.querySelectorAll('.qr-btn');
+  const toggleButtons = document.querySelectorAll('.otp-toggle');
   const modalEl = document.getElementById('qrModal');
   const modalTitle = document.getElementById('qrTitle');
   const modalBody = document.getElementById('qrBody');
@@ -176,6 +184,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const ISSUER = <?= json_encode(OTP_ISSUER) ?>;
   const DIGITS = <?= (int)OTP_DIGITS ?>;
   const PERIOD = <?= (int)OTP_STEP ?>;
+
+  toggleButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      if (!targetId) return;
+      const input = document.getElementById(targetId);
+      if (!input) return;
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      btn.textContent = isHidden ? 'Hide' : 'Show';
+    });
+  });
 
   buttons.forEach(btn => {
     btn.addEventListener('click', () => {

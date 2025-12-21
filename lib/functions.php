@@ -472,24 +472,83 @@ function user_can_access_network(array $user, array $network): bool
 function mikrotik_request(string $method, string $path, ?array $body = null): array
 {
     $url = rtrim(MIKROTIK_BASE_URL, '/') . '/' . ltrim($path, '/');
+    $allowedFingerprint = defined('MIKROTIK_CERT_FINGERPRINT') ? trim((string)MIKROTIK_CERT_FINGERPRINT) : '';
+    $normalizedAllowed = $allowedFingerprint === '' ? '' : strtoupper(preg_replace('/[^A-Fa-f0-9]/', '', $allowedFingerprint));
+    $isHttps = strncasecmp($url, 'https://', 8) === 0;
+    $extractFingerprint = static function ($certInfo): ?string {
+        if (!is_array($certInfo)) {
+            return null;
+        }
+        foreach ($certInfo as $cert) {
+            if (!empty($cert['Cert'])) {
+                $fp = @openssl_x509_fingerprint($cert['Cert'], 'sha256');
+                if ($fp !== false) {
+                    return strtoupper($fp);
+                }
+            }
+        }
+        return null;
+    };
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, strtoupper($method));
     curl_setopt($ch, CURLOPT_USERPWD, MIKROTIK_USERNAME . ':' . MIKROTIK_PASSWORD);
     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+    if ($isHttps) {
+        // Always collect certificate info so we can surface fingerprints in errors.
+        curl_setopt($ch, CURLOPT_CERTINFO, true);
+        // If an allowed fingerprint is configured, relax hostname verification (common for self-signed with mismatched CN)
+        // and rely on the fingerprint instead; otherwise keep strict verification.
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, $normalizedAllowed === '' ? 2 : 0);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $normalizedAllowed === '');
+    }
     if ($body !== null) {
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
     }
     $resp = curl_exec($ch);
     $err = curl_error($ch);
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $certInfo = $isHttps ? curl_getinfo($ch, CURLINFO_CERTINFO) : null;
     curl_close($ch);
+    $certFingerprint = null;
+    $ok = $resp !== false && !$err && $status >= 200 && $status < 300;
+    if ($isHttps && !$ok) {
+        $certFingerprint = $extractFingerprint($certInfo);
+        // If HTTPS failed and we lack a fingerprint, re-probe with verification off to capture it for display only.
+        if ($certFingerprint === null) {
+            $probe = curl_init($url);
+            curl_setopt($probe, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($probe, CURLOPT_CUSTOMREQUEST, 'HEAD');
+            curl_setopt($probe, CURLOPT_USERPWD, MIKROTIK_USERNAME . ':' . MIKROTIK_PASSWORD);
+            curl_setopt($probe, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($probe, CURLOPT_CERTINFO, true);
+            curl_setopt($probe, CURLOPT_SSL_VERIFYHOST, $normalizedAllowed === '' ? 2 : 0);
+            curl_setopt($probe, CURLOPT_SSL_VERIFYPEER, false); // allow capture even if untrusted
+            curl_setopt($probe, CURLOPT_TIMEOUT, 5);
+            curl_exec($probe);
+            $probeInfo = curl_getinfo($probe, CURLINFO_CERTINFO);
+            curl_close($probe);
+            $certFingerprint = $extractFingerprint($probeInfo) ?: $certFingerprint;
+        }
+    }
+    $normalizedActual = $certFingerprint ? strtoupper(preg_replace('/[^A-Fa-f0-9]/', '', $certFingerprint)) : '';
+    // Enforce fingerprint match when configured; include fingerprint in any error message.
+    if ($isHttps && $normalizedAllowed !== '' && $normalizedActual !== '' && $normalizedAllowed !== $normalizedActual) {
+        $msg = 'SSL certificate fingerprint mismatch. Expected ' . $allowedFingerprint . ', got ' . $certFingerprint;
+        return ['success' => false, 'data' => null, 'error' => $msg, 'status' => $status, 'fingerprint' => $certFingerprint];
+    }
     if ($resp === false || $err) {
-        return ['success' => false, 'data' => null, 'error' => $err ?: 'unknown error', 'status' => $status];
+        $errorMsg = $err ?: 'unknown error';
+        if ($certFingerprint) {
+            $errorMsg .= ' (cert fingerprint: ' . $certFingerprint . ')';
+        }
+        return ['success' => false, 'data' => null, 'error' => $errorMsg, 'status' => $status, 'fingerprint' => $certFingerprint];
     }
     $data = json_decode($resp, true);
-    $ok = $status >= 200 && $status < 300;
-    return ['success' => $ok, 'data' => $data, 'error' => $ok ? null : ('HTTP ' . $status), 'status' => $status];
+    if (!$ok && $certFingerprint) {
+        return ['success' => false, 'data' => $data, 'error' => 'HTTP ' . $status . ' (cert fingerprint: ' . $certFingerprint . ')', 'status' => $status, 'fingerprint' => $certFingerprint];
+    }
+    return ['success' => $ok, 'data' => $data, 'error' => $ok ? null : ('HTTP ' . $status), 'status' => $status, 'fingerprint' => $certFingerprint];
 }
 
 function address_list_name(string $userIp): string
@@ -527,19 +586,31 @@ function get_all_address_list_entries(): array
     }
     $resp = mikrotik_request('GET', '/ip/firewall/address-list');
     if (!$resp['success'] || !is_array($resp['data'])) {
-        return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'status' => $resp['status'] ?? null, 'data' => []];
+        return [
+            'success' => false,
+            'error' => $resp['error'] ?? 'API error',
+            'status' => $resp['status'] ?? null,
+            'data' => [],
+            'fingerprint' => $resp['fingerprint'] ?? null,
+        ];
     }
     $filtered = array_values(array_filter($resp['data'], function ($entry) {
         return isset($entry['list']) && is_valid_address_list_name((string)$entry['list']);
     }));
-    return ['success' => true, 'data' => $filtered];
+    return ['success' => true, 'data' => $filtered, 'fingerprint' => $resp['fingerprint'] ?? null];
 }
 
 function current_accesses_by_users(array $users): array
 {
     $resp = get_all_address_list_entries();
     if (!$resp['success']) {
-        return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'status' => $resp['status'] ?? null, 'data' => []];
+        return [
+            'success' => false,
+            'error' => $resp['error'] ?? 'API error',
+            'status' => $resp['status'] ?? null,
+            'data' => [],
+            'fingerprint' => $resp['fingerprint'] ?? null,
+        ];
     }
     $data = [];
     foreach ($users as $u) {
@@ -552,7 +623,7 @@ function current_accesses_by_users(array $users): array
         }));
         $data[$u['user_ip']] = $entries;
     }
-    return ['success' => true, 'data' => $data];
+    return ['success' => true, 'data' => $data, 'fingerprint' => $resp['fingerprint'] ?? null];
 }
 
 function last_login_for_user_ip(string $userIp): ?int
@@ -688,4 +759,3 @@ function delete_user(int $id): void
     $stmt = db()->prepare('DELETE FROM users WHERE id = :id');
     $stmt->execute([':id' => $id]);
 }
-?>
