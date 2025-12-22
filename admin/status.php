@@ -106,6 +106,9 @@ include __DIR__ . '/../lib/header.php';
             </div>
           </div>
         </div>
+        <div class="mt-3 d-flex justify-content-end">
+          <a href="<?= htmlspecialchars(url_for('status_public.php')) ?>" class="btn btn-outline-dark btn-sm">View public status</a>
+        </div>
       </div>
     </div>
   </div>
