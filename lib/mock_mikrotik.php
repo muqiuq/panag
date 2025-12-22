@@ -103,6 +103,19 @@ function mock_mikrotik_identity(): array
     return ['success' => true, 'data' => ['name' => 'mock-router']];
 }
 
+function mock_mikrotik_clock(): array
+{
+    return [
+        'success' => true,
+        'data' => [
+            'time' => '12:34:56',
+            'date' => '2024-01-01',
+            'time_zone' => 'UTC',
+            'gmt_offset' => '+00:00',
+        ],
+    ];
+}
+
 function mock_mikrotik_uptime(): array
 {
     return ['success' => true, 'data' => ['uptime' => '1w2d3h4m5s']];

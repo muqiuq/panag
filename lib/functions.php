@@ -671,6 +671,34 @@ function mikrotik_identity(): array
     return ['success' => $name !== null, 'error' => $name !== null ? null : 'Identity not found', 'data' => ['name' => $name]];
 }
 
+function mikrotik_clock(): array
+{
+    if (is_mock_mikrotik()) {
+        return mock_mikrotik_clock();
+    }
+    $resp = mikrotik_request('GET', '/system/clock');
+    if (!$resp['success'] || empty($resp['data'])) {
+        return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'data' => null];
+    }
+    if (is_array($resp['data']) && array_keys($resp['data']) === array_filter(array_keys($resp['data']), 'is_string')) {
+        $row = $resp['data'];
+    } else {
+        $row = is_array($resp['data']) ? reset($resp['data']) : null;
+    }
+    $time = is_array($row) && isset($row['time']) ? (string)$row['time'] : null;
+    $date = is_array($row) && isset($row['date']) ? (string)$row['date'] : null;
+    $tz = is_array($row) && isset($row['time-zone-name']) ? (string)$row['time-zone-name'] : null;
+    $offset = is_array($row) && isset($row['gmt-offset']) ? (string)$row['gmt-offset'] : null;
+    $data = [
+        'time' => $time,
+        'date' => $date,
+        'time_zone' => $tz,
+        'gmt_offset' => $offset,
+    ];
+    $hasTime = $time !== null || $date !== null;
+    return ['success' => $hasTime, 'error' => $hasTime ? null : 'Clock not found', 'data' => $data];
+}
+
 function mikrotik_uptime(): array
 {
     if (is_mock_mikrotik()) {

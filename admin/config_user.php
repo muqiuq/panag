@@ -1,6 +1,11 @@
 <?php
 require_once __DIR__ . '/../lib/functions.php';
+require_once __DIR__ . '/../lib/backup.php';
 require_admin();
+
+ensure_session();
+$flash = $_SESSION['user_flash'] ?? null;
+unset($_SESSION['user_flash']);
 
 $networks = get_all_networks();
 
@@ -28,6 +33,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     header('Location: ' . url_for('index.php'));
     exit;
+  } elseif ($action === 'export_users') {
+    $json = export_users_json();
+    header('Content-Type: application/json');
+    header('Content-Disposition: attachment; filename="users.json"');
+    echo $json;
+    exit;
+  } elseif ($action === 'import_users') {
+    $json = '';
+    if (isset($_FILES['users_file']) && is_uploaded_file($_FILES['users_file']['tmp_name'])) {
+      $json = file_get_contents($_FILES['users_file']['tmp_name']);
+    }
+    if ($json === '') {
+      $_SESSION['user_flash'] = ['type' => 'danger', 'message' => 'No file uploaded.'];
+    } else {
+      try {
+        $result = import_users_json($json);
+        $imported = (int)($result['imported'] ?? 0);
+        $skippedExisting = (int)($result['skipped_existing'] ?? 0);
+        $skippedDuplicate = (int)($result['skipped_duplicate'] ?? 0);
+        $message = 'Imported ' . $imported . ' new user(s).';
+        if ($skippedExisting > 0) {
+          $message .= ' Skipped ' . $skippedExisting . ' existing user_ip(s).';
+        }
+        if ($skippedDuplicate > 0) {
+          $message .= ' Skipped ' . $skippedDuplicate . ' duplicate user_ip(s) in file.';
+        }
+        $_SESSION['user_flash'] = ['type' => 'success', 'message' => $message];
+      } catch (Throwable $e) {
+        $_SESSION['user_flash'] = ['type' => 'danger', 'message' => 'Import failed: ' . $e->getMessage()];
+      }
+    }
   }
   header('Location: ' . url_for('admin/config_user.php'));
   exit;
@@ -40,6 +76,9 @@ include __DIR__ . '/../lib/header.php';
 <div class="card shadow-sm mb-4">
   <div class="card-header">Add user</div>
   <div class="card-body">
+    <?php if ($flash): ?>
+      <div class="alert alert-<?= htmlspecialchars($flash['type']) ?>" role="alert"><?= htmlspecialchars($flash['message']) ?></div>
+    <?php endif; ?>
     <form method="post" class="row g-3" autocomplete="off">
       <input type="hidden" name="action" value="create">
       <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
@@ -153,6 +192,35 @@ include __DIR__ . '/../lib/header.php';
     </div>
   </div>
 <?php endforeach; ?>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-header">Backup users</div>
+  <div class="card-body">
+    <div class="mb-3">
+      <h6 class="mb-2">Export</h6>
+      <form method="post" class="d-inline">
+        <input type="hidden" name="action" value="export_users">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+        <button class="btn btn-outline-primary">Export users (JSON)</button>
+      </form>
+    </div>
+    <hr class="my-3">
+    <div>
+      <h6 class="mb-2">Import</h6>
+      <form method="post" enctype="multipart/form-data" class="row g-2 align-items-center">
+        <input type="hidden" name="action" value="import_users">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+        <div class="col-sm-7 col-md-6">
+          <input type="file" name="users_file" accept="application/json" class="form-control" required>
+        </div>
+        <div class="col-sm-3 col-md-3">
+          <button class="btn btn-outline-success w-100" type="submit">Import</button>
+        </div>
+      </form>
+      <p class="text-muted small mt-2 mb-0">Import adds users whose user_ip is not already present; existing user_ips are skipped. New users have no default networks.</p>
+    </div>
+  </div>
+</div>
 
 <div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">

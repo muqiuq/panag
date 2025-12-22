@@ -22,6 +22,11 @@ footer {
     color: #fff !important;
 }
 
+.navbar-nav .nav-link {
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+}
+
 .navbar-dark .nav-link:hover,
 .navbar-dark .nav-link:focus {
     color: #ffe5e5 !important;

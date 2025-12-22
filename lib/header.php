@@ -20,8 +20,11 @@ $basePath = base_path();
 <nav class="navbar navbar-expand-lg navbar-dark bg-danger mb-4">
   <div class="container-fluid">
     <a class="navbar-brand" href="<?= htmlspecialchars(url_for('index.php')) ?>"><?= htmlspecialchars(APP_NAME) ?></a>
-    <div class="collapse navbar-collapse">
-      <ul class="navbar-nav ms-auto align-items-center gap-3">
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ms-auto align-items-lg-center gap-3">
         <?php if ($user): ?>
           <li class="nav-item d-flex align-items-center"><span class="navbar-text fw-semibold">User: <?= htmlspecialchars($user['username']) ?> (<?= htmlspecialchars($user['user_ip']) ?>, L<?= (int)$user['accesslevel'] ?>)</span></li>
           <?php if ((int)$user['isadmin'] === 1): ?>

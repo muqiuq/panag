@@ -5,6 +5,7 @@ require_admin();
 
 $identityRes = mikrotik_identity();
 $uptimeRes = mikrotik_uptime();
+$clockRes = mikrotik_clock();
 $peersRes = mikrotik_wireguard_peers();
 $stats = statistics_overview($peersRes);
 $adminOverview = admin_access_overview();
@@ -15,6 +16,12 @@ $loggedInToday = $adminOverview['loggedInToday'];
 
 $identityName = $identityRes['data']['name'] ?? null;
 $uptimeValue = $uptimeRes['data']['uptime'] ?? null;
+$routerDate = $clockRes['data']['date'] ?? null;
+$routerTime = $clockRes['data']['time'] ?? null;
+$routerTz = $clockRes['data']['time_zone'] ?? ($clockRes['data']['time-zone-name'] ?? ($clockRes['data']['gmt_offset'] ?? null));
+$routerTimeDisplay = ($routerDate && $routerTime) ? ($routerDate . ' ' . $routerTime) : ($routerTime ?? $routerDate ?? null);
+$serverTimeDisplay = date('Y-m-d H:i:s');
+$serverTz = date_default_timezone_get();
 $peers = is_array($peersRes['data'] ?? null) ? $peersRes['data'] : [];
 
 function wg_format_bytes($bytes): string
@@ -52,7 +59,8 @@ include __DIR__ . '/../lib/header.php';
     <div class="card shadow-sm">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>Status</span>
-        <?php if (($identityRes['success'] ?? false) && ($uptimeRes['success'] ?? false)): ?>
+        <?php $apiOk = ($identityRes['success'] ?? false) && ($uptimeRes['success'] ?? false) && ($clockRes['success'] ?? false); ?>
+        <?php if ($apiOk): ?>
           <span class="badge bg-success">API OK</span>
         <?php else: ?>
           <span class="badge bg-danger">API error</span>
@@ -65,6 +73,9 @@ include __DIR__ . '/../lib/header.php';
         <?php if (!($uptimeRes['success'] ?? false)): ?>
           <div class="alert alert-danger" role="alert">Failed to fetch uptime<?= $uptimeRes['error'] ? ': ' . htmlspecialchars((string)$uptimeRes['error']) : '' ?></div>
         <?php endif; ?>
+        <?php if (!($clockRes['success'] ?? false)): ?>
+          <div class="alert alert-danger" role="alert">Failed to fetch router time<?= $clockRes['error'] ? ': ' . htmlspecialchars((string)$clockRes['error']) : '' ?></div>
+        <?php endif; ?>
         <div class="row g-3">
           <div class="col-md-6">
             <div class="p-3 border rounded bg-light h-100">
@@ -76,6 +87,22 @@ include __DIR__ . '/../lib/header.php';
             <div class="p-3 border rounded bg-light h-100">
               <div class="text-muted small">Uptime</div>
               <div class="fs-5 fw-semibold mb-0"><?= $uptimeValue ? htmlspecialchars($uptimeValue) : 'n/a' ?></div>
+            </div>
+          </div>
+        </div>
+        <div class="row g-3 mt-1">
+          <div class="col-md-6">
+            <div class="p-3 border rounded bg-light h-100">
+              <div class="text-muted small">Router time</div>
+              <div class="fs-6 fw-semibold mb-0"><?= $routerTimeDisplay ? htmlspecialchars($routerTimeDisplay) : 'n/a' ?></div>
+              <div class="text-muted small">Timezone: <?= $routerTz ? htmlspecialchars($routerTz) : 'n/a' ?></div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="p-3 border rounded bg-light h-100">
+              <div class="text-muted small">PHP server time</div>
+              <div class="fs-6 fw-semibold mb-0"><?= htmlspecialchars($serverTimeDisplay) ?></div>
+              <div class="text-muted small">Timezone: <?= htmlspecialchars($serverTz) ?></div>
             </div>
           </div>
         </div>
