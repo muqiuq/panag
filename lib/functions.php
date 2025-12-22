@@ -726,7 +726,15 @@ function mikrotik_wireguard_peers(): array
     if (!$resp['success'] || !is_array($resp['data'])) {
         return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'data' => []];
     }
-    return ['success' => true, 'data' => $resp['data']];
+    $peers = $resp['data'];
+    $iface = defined('WIREGUARD_INTERFACE') ? trim((string)WIREGUARD_INTERFACE) : '';
+    if ($iface !== '') {
+        $peers = array_values(array_filter($peers, function ($peer) use ($iface) {
+            $pIface = $peer['interface'] ?? $peer['interface-name'] ?? '';
+            return is_string($pIface) && trim($pIface) === $iface;
+        }));
+    }
+    return ['success' => true, 'data' => $peers];
 }
 
 function last_login_for_user_ip(string $userIp): ?int

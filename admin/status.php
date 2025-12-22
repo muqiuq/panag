@@ -161,7 +161,7 @@ include __DIR__ . '/../lib/header.php';
           </div>
           <div class="col">
             <div class="p-3 border rounded bg-light h-100">
-              <div class="text-muted small">WireGuard peers</div>
+              <div class="text-muted small">WireGuard peers<?php if (defined('WIREGUARD_INTERFACE') && WIREGUARD_INTERFACE !== ''): ?> (<?= htmlspecialchars(WIREGUARD_INTERFACE) ?>)<?php endif; ?></div>
               <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['wireguard_peers'] ?? 0) ?></div>
             </div>
           </div>
@@ -173,7 +173,7 @@ include __DIR__ . '/../lib/header.php';
   <div class="col-12">
     <div class="card shadow-sm">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span>WireGuard peers</span>
+        <span>WireGuard peers<?php if (defined('WIREGUARD_INTERFACE') && WIREGUARD_INTERFACE !== ''): ?> (<?= htmlspecialchars(WIREGUARD_INTERFACE) ?>)<?php endif; ?></span>
         <?php if ($peersRes['success'] ?? false): ?>
           <span class="badge bg-success">Loaded</span>
         <?php else: ?>

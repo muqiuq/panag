@@ -130,6 +130,7 @@ function mock_mikrotik_wireguard_peers(): array
                 'public-key' => 'mock-public-key-1',
                 'comment' => 'Demo peer 1',
                 'name' => 'peer1',
+                'interface' => 'wg0',
                 'last-handshake' => '2024-01-01T12:00:00Z',
                 'tx' => 123456,
                 'rx' => 654321,
