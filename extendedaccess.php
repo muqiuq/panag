@@ -41,7 +41,10 @@ include __DIR__ . '/lib/header.php';
                   <?php if ($allowed): ?>
                     <input type="checkbox" name="network_ids[]" value="<?= (int)$n['id'] ?>" <?= $hasAccess ? 'checked' : '' ?>>
                   <?php else: ?>
-                    <input type="checkbox" disabled>
+                    <div class="d-flex align-items-center gap-1">
+                      <input type="checkbox" disabled aria-label="Not enough access level">
+                      <span class="text-muted" title="Not enough access level. You have L<?= (int)$user['accesslevel'] ?>, this network needs L<?= (int)$n['accesslevel'] ?>.">ℹ️</span>
+                    </div>
                   <?php endif; ?>
                 </td>
                 <td><?= htmlspecialchars($n['name']) ?></td>
