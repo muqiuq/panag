@@ -8,6 +8,21 @@ $message = '';
 $setupPending = defined('SETUP_FLAG_PATH') ? !file_exists(SETUP_FLAG_PATH) : !file_exists(__DIR__ . '/setup-completed.txt');
 $resetFile = defined('RESET_LOGIN_FILE') ? RESET_LOGIN_FILE : (__DIR__ . '/reset_login_attempts.txt');
 
+// Pick hero image based on configured schedule (hour in 24h, start inclusive, end exclusive)
+$heroImage = 'panag-logo.png';
+if (defined('LOGIN_HERO_IMAGES') && is_array(LOGIN_HERO_IMAGES)) {
+    $hourNow = (int)date('G');
+    foreach (LOGIN_HERO_IMAGES as $slot) {
+        $s = isset($slot['start']) ? (int)$slot['start'] : 0;
+        $e = isset($slot['end']) ? (int)$slot['end'] : 24;
+        $file = isset($slot['file']) ? (string)$slot['file'] : '';
+        if ($file !== '' && $hourNow >= $s && $hourNow < $e) {
+            $heroImage = $file;
+            break;
+        }
+    }
+}
+
 // Allow a manual reset of failed login attempts via flag file.
 if (file_exists($resetFile)) {
     try {
@@ -51,8 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="container d-flex justify-content-center align-items-center min-vh-100">
     <?php if ($ipAllowed): ?>
                 <div class="d-flex flex-column align-items-center w-100" style="max-width: 420px;">
-                    <div class="mb-3 text-center" style="max-width: 240px; width: 100%; margin: 0 auto;">
-                        <img src="<?= htmlspecialchars(url_for('img/panag-logo.png')) ?>" alt="PANAG logo" style="max-width: 240px; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: contain;">
+                    <div class="mb-3 text-center" style="max-width: 280px; width: 100%; margin: 0 auto;">
+                        <img src="<?= htmlspecialchars(url_for('img/' . $heroImage)) ?>" alt="PANAG logo" style="max-width: 280px; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: contain;">
                     </div>
           <div class="card shadow-sm w-100">
               <div class="card-body">

@@ -19,7 +19,10 @@ $basePath = base_path();
   <body data-base-path="<?= htmlspecialchars($basePath) ?>" data-csrf-token="<?= htmlspecialchars(csrf_token()) ?>">
 <nav class="navbar navbar-expand-lg navbar-dark bg-danger mb-4">
   <div class="container-fluid">
-    <a class="navbar-brand" href="<?= htmlspecialchars(url_for('index.php')) ?>"><?= htmlspecialchars(APP_NAME) ?></a>
+    <a class="navbar-brand d-flex align-items-center gap-2" href="<?= htmlspecialchars(url_for('index.php')) ?>">
+      <img src="<?= htmlspecialchars(url_for('favicon.svg')) ?>" alt="Logo" width="24" height="24">
+      <span><?= htmlspecialchars(APP_NAME) ?></span>
+    </a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
       <span class="navbar-toggler-icon"></span>
     </button>
