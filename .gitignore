@@ -6,3 +6,4 @@ data/*.sqlite
 setup-completed.txt
 data/mock_address_list.json
 .DS_Store
+lib/define.php
