@@ -36,10 +36,10 @@ const WIREGUARD_INTERFACE = 'wg0';
 
 // Login IP whitelist (CIDR or single IP). Only clients in these ranges see the login form.
 const LOGIN_IP_WHITELIST = [
-	'10.0.0.0/8',
-	'172.16.0.0/12',
-	'192.168.0.0/16',
-	'127.0.0.1/32',
+    '10.0.0.0/8',
+    '172.16.0.0/12',
+    '192.168.0.0/16',
+    '127.0.0.1/32',
 ];
 
 // Session lifetime (seconds)
@@ -50,23 +50,23 @@ const MAX_AUDIT_LOG_ENTRIES = 10000;
 
 // Time-based greetings (hour ranges are start inclusive, end exclusive, 24h)
 const GREETING_MESSAGES = [
-	['start' => 5,  'end' => 12, 'greeting' => 'Good morning',   'quip' => 'Rise and shine!'],
-	['start' => 12, 'end' => 17, 'greeting' => 'Good afternoon', 'quip' => 'Let’s keep the packets flowing.'],
-	['start' => 17, 'end' => 22, 'greeting' => 'Good evening',   'quip' => 'It\'s getting late, stay secure!'],
-	['start' => 22, 'end' => 24, 'greeting' => 'Good night',     'quip' => 'It\'s time to sleep...'],
-	['start' => 0,  'end' => 5,  'greeting' => 'Good night',     'quip' => 'Go to bed, it\'s late!'],
+    ['start' => 5,  'end' => 12, 'greeting' => 'Good morning',   'quip' => 'Rise and shine!'],
+    ['start' => 12, 'end' => 17, 'greeting' => 'Good afternoon', 'quip' => 'Let’s keep the packets flowing.'],
+    ['start' => 17, 'end' => 22, 'greeting' => 'Good evening',   'quip' => 'It\'s getting late, stay secure!'],
+    ['start' => 22, 'end' => 24, 'greeting' => 'Good night',     'quip' => 'It\'s time to sleep...'],
+    ['start' => 0,  'end' => 5,  'greeting' => 'Good night',     'quip' => 'Go to bed, it\'s late!'],
 ];
 
 // Login hero image schedule (hour ranges start inclusive, end exclusive, 24h); files live in /img
 const LOGIN_HERO_IMAGES = [
-	['start' => 0,  'end' => 5,  'file' => 'panag-logo-night.jpg'],
-	['start' => 5,  'end' => 9,  'file' => 'panag-logo-early-morning.jpg'],
-	['start' => 9,  'end' => 12, 'file' => 'panag-logo-morning-from-9-to-11.jpg'],
-	['start' => 12, 'end' => 13, 'file' => 'panag-logo-noon.jpg'],
-	['start' => 13, 'end' => 16, 'file' => 'panag-logo-afternoon.jpg'],
-	['start' => 16, 'end' => 19, 'file' => 'panag-logo-late-afternoon.jpg'],
-	['start' => 19, 'end' => 23, 'file' => 'panag-logo-evening.jpg'],
-	['start' => 23, 'end' => 24, 'file' => 'panag-logo-midnight.jpg'],
+    ['start' => 0,  'end' => 5,  'file' => 'panag-logo-night.jpg'],
+    ['start' => 5,  'end' => 9,  'file' => 'panag-logo-early-morning.jpg'],
+    ['start' => 9,  'end' => 12, 'file' => 'panag-logo-morning-from-9-to-11.jpg'],
+    ['start' => 12, 'end' => 13, 'file' => 'panag-logo-noon.jpg'],
+    ['start' => 13, 'end' => 16, 'file' => 'panag-logo-afternoon.jpg'],
+    ['start' => 16, 'end' => 19, 'file' => 'panag-logo-late-afternoon.jpg'],
+    ['start' => 19, 'end' => 23, 'file' => 'panag-logo-evening.jpg'],
+    ['start' => 23, 'end' => 24, 'file' => 'panag-logo-midnight.jpg'],
 ];
 
 // Application naming

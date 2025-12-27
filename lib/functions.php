@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/define.php';
+require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/mock_mikrotik.php';
 
 function base_path(): string

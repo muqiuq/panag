@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../lib/functions.php';
 require_admin();
 
-$definePath = __DIR__ . '/../lib/define.php';
+$definePath = __DIR__ . '/../config/config.php';
 $constantNames = [];
 if (is_readable($definePath)) {
     $contents = file_get_contents($definePath);
@@ -40,7 +40,7 @@ include __DIR__ . '/../lib/header.php';
 ?>
 <div class="card shadow-sm">
   <div class="card-header d-flex justify-content-between align-items-center">
-    <span>Application configuration (from define.php)</span>
+    <span>Application configuration (from config/config.php)</span>
     <span class="badge bg-secondary">Passwords hidden</span>
   </div>
   <div class="card-body">

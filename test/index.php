@@ -35,7 +35,7 @@ $tests = [
 <body>
   <h1>PANAG Test Index</h1>
   <?php if ($disabled): ?>
-    <p class="disabled">Tests are disabled. Enable ALLOW_TESTS in define.php to use these utilities.</p>
+    <p class="disabled">Tests are disabled. Enable ALLOW_TESTS in config/config.php to use these utilities.</p>
   <?php else: ?>
     <ul>
       <?php foreach ($tests as $file => $label): ?>
