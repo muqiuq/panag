@@ -1,0 +1,73 @@
+# Development / test stack: PANAG + mock RouterOS (+ Playwright and tooling on demand).
+# Used by run.sh and CI – no MikroTik needed.
+services:
+  app:
+    depends_on:
+      - mock-routeros
+    environment:
+      APP_ENV: dev
+      SEED_DEMO: "1"
+      DEV_DEFAULT_IP: 127.0.0.1
+      MIKROTIK_BASE_URL: http://mock-routeros:8080/rest
+      MIKROTIK_USERNAME: admin
+      MIKROTIK_PASSWORD: mock
+      MIKROTIK_TIMEOUT: "5"
+      LOGIN_IP_WHITELIST: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32
+      # Only the compose network is trusted to send X-Forwarded-For (Playwright sets it per test).
+      # Must not overlap with the demo user IPs (10.0.0.x).
+      TRUSTED_PROXIES: 172.30.99.0/24
+      PHP_DISPLAY_ERRORS: "On"
+
+  mock-routeros:
+    image: ${PANAG_IMAGE:-localhost/panag:dev}
+    entrypoint: ["php"]
+    command: ["-S", "0.0.0.0:8080", "/mock/router.php"]
+    environment:
+      PHP_CLI_SERVER_WORKERS: "4"
+      MOCK_USERNAME: admin
+      MOCK_PASSWORD: mock
+      MOCK_STATE_FILE: /tmp/mock-routeros.json
+      MOCK_TIMEOUT_SECONDS: "8"
+    volumes:
+      - ./dev/mock-routeros:/mock:ro
+    ports:
+      - "127.0.0.1:${MOCK_PORT:-8081}:8080"
+
+  # ./run.sh e2e
+  playwright:
+    # Keep in sync with @playwright/test in package.json
+    image: mcr.microsoft.com/playwright:v1.57.0-noble
+    profiles: ["e2e"]
+    depends_on:
+      - app
+      - mock-routeros
+    working_dir: /work
+    environment:
+      CI: ${CI:-}
+      BASE_URL: http://app:8080
+      MOCK_URL: http://mock-routeros:8080
+    volumes:
+      - .:/work
+      - node-modules:/work/node_modules
+    entrypoint: ["sh", "-c"]
+    command: ["npm ci --no-audit --no-fund --loglevel=error && npx playwright test"]
+
+  # ./run.sh unit | lint | composer | shell tools
+  tools:
+    image: localhost/panag-tools:dev
+    build:
+      context: .
+      target: dev
+    profiles: ["tools"]
+    working_dir: /work
+    volumes:
+      - .:/work
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.99.0/24
+
+volumes:
+  node-modules:

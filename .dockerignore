@@ -1,0 +1,6 @@
+*
+!VERSION
+!src/
+!bin/
+!public/
+!docker/

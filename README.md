@@ -11,13 +11,39 @@ PANAG is a lightweight PHP/SQLite web app that hands out temporary or default ac
  - Grant On-demand access to networks 
  - User and network management with access levels and admin role
  - Local assets (Bootstrap/kjua) for offline-friendly deployments
- - Deployable on a [RouterOS](https://mikrotik.com/software) device using [Container](https://help.mikrotik.com/docs/spaces/ROS/pages/84901929/Container) feature and [php:8.4-apache-bookwor](https://hub.docker.com/_/php/tags)
+ - Small container image (~40 MB, Alpine + Apache + PHP 8.4) for `amd64`, `arm64` and `arm/v7`
+ - Deployable on a [RouterOS](https://mikrotik.com/software) device using the [Container](https://help.mikrotik.com/docs/spaces/ROS/pages/84901929/Container) feature – see [docs/deploy-mikrotik.md](docs/deploy-mikrotik.md)
+ - Fully testable without a MikroTik: a mock RouterOS REST API is included
 
 ## 🧸 Motivation
  - Let admins grant themselves scoped access to parts of the network without exposing everything.
  - Provide a simple web front-end to hand out timed address-list entries without touching RouterOS manually.
  - Keep dependencies minimal (PHP + SQLite) while still supporting OTP and admin workflows.
  - Define profiles per users for quick access
+
+## 🛠️ Development
+
+Everything runs in containers (Podman, or Docker) – no PHP, Node or npm needed on the host.
+
+```sh
+./run.sh up      # app + mock RouterOS with demo data → http://localhost:8080
+./run.sh otp     # current login code for the demo users
+./run.sh test    # lint (php -l, shellcheck, PHPStan) + PHPUnit + Playwright E2E
+./run.sh help    # all commands
+```
+
+In development the app runs with `APP_ENV=dev`: a banner lets you choose which client IP PANAG
+should assume (users are identified by IP), so you can log in as any demo user.
+The mock router (`dev/mock-routeros/`) implements the RouterOS REST endpoints PANAG uses, lets
+timeouts expire like RouterOS and supports fault injection (`/_mock/fault`).
+
+Layout: `public/` is the only web root, application code is in `src/`, CLI tools in `bin/`,
+the SQLite database lives in `$DATA_DIR` (`/data` in the container).
+
+## ⚙️ Configuration
+
+All settings are environment variables – see [.env.example](.env.example).
+Container images are published to `ghcr.io/muqiuq/panag` by GitHub Actions.
 
 ## 🚀 Upcoming features
  - Optional email/notification hooks for granted access events

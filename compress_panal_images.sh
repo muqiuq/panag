@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Resize all panal/panag logo images in ./img to 600px width (preserve aspect ratio).
+# Resize all panal/panag logo images in ./public/img to 600px width (preserve aspect ratio).
 # Requires ImageMagick (mogrify). This overwrites the originals; make a backup if needed.
 
-dir="$(cd "$(dirname "$0")" && pwd)/img"
+dir="$(cd "$(dirname "$0")" && pwd)/public/img"
 cd "$dir"
 
 if ! command -v mogrify >/dev/null 2>&1; then

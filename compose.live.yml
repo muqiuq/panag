@@ -1,0 +1,7 @@
+# Live editing: mount the sources into the app container (used by `./run.sh up`).
+services:
+  app:
+    volumes:
+      - ./public:/app/public:ro
+      - ./src:/app/src:ro
+      - ./bin:/app/bin:ro

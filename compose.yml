@@ -1,0 +1,29 @@
+# PANAG on a regular Docker/Podman host (production-like).
+# On MikroTik RouterOS there is no compose – see docs/deploy-mikrotik.md.
+#
+#   cp .env.example .env   # adjust
+#   docker compose up -d
+services:
+  app:
+    image: ${PANAG_IMAGE:-localhost/panag:dev}
+    build:
+      context: .
+      target: runtime
+    restart: unless-stopped
+    ports:
+      - "${PANAG_BIND:-0.0.0.0}:${PANAG_PORT:-8080}:8080"
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_TIMEZONE: ${APP_TIMEZONE:-Europe/Zurich}
+      MIKROTIK_BASE_URL: ${MIKROTIK_BASE_URL:-http://172.17.0.1/rest}
+      MIKROTIK_USERNAME: ${MIKROTIK_USERNAME:-panag}
+      MIKROTIK_PASSWORD: ${MIKROTIK_PASSWORD:-}
+      MIKROTIK_CERT_FINGERPRINT: ${MIKROTIK_CERT_FINGERPRINT:-}
+      LOGIN_IP_WHITELIST: ${LOGIN_IP_WHITELIST:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
+    volumes:
+      - panag-data:/data
+
+volumes:
+  panag-data:

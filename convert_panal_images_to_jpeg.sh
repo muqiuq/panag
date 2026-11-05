@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Convert all panal/panag logo PNGs in ./img to JPEG at max quality.
+# Convert all panal/panag logo PNGs in ./public/img to JPEG at max quality.
 # Output JPEGs will be created alongside the PNGs with .jpg extension.
 # Requires ImageMagick (convert).
 
-dir="$(cd "$(dirname "$0")" && pwd)/img"
+dir="$(cd "$(dirname "$0")" && pwd)/public/img"
 cd "$dir"
 
 if ! command -v convert >/dev/null 2>&1; then

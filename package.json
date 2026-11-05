@@ -2,11 +2,11 @@
   "name": "panag-e2e",
   "version": "1.0.0",
   "private": true,
+  "description": "Playwright E2E tests for PANAG – run via ./run.sh e2e (inside the Playwright container)",
   "scripts": {
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
-    "@playwright/test": "^1.45.0"
+    "@playwright/test": "1.57.0"
   }
 }

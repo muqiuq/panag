@@ -1,9 +1,15 @@
+# dependencies / tool output
 node_modules/
+/vendor/
+/.phpunit.cache/
 playwright-report/
 test-results/
 .trace/
-data/*.sqlite
-setup-completed.txt
-data/mock_address_list.json
+/dist/
+
+# runtime data and local secrets
+data/
+config/
+.env
+
 .DS_Store
-config/config.php

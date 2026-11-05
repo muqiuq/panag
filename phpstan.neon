@@ -1,0 +1,46 @@
+parameters:
+    level: 5
+    paths:
+        - src
+        - public
+        - bin
+        - dev/mock-routeros
+        - tests
+    excludePaths:
+        - vendor
+    bootstrapFiles:
+        - tests/phpstan-bootstrap.php
+    # Values come from the environment at runtime – don't treat the analysis-time value as fixed.
+    dynamicConstantNames:
+        - APP_ENV
+        - APP_NAME
+        - APP_TIMEZONE
+        - APP_VERSION
+        - DATA_DIR
+        - DB_PATH
+        - DB_DSN
+        - RESET_LOGIN_FILE
+        - MIKROTIK_BASE_URL
+        - MIKROTIK_USERNAME
+        - MIKROTIK_PASSWORD
+        - MIKROTIK_CERT_FINGERPRINT
+        - MIKROTIK_CONNECT_TIMEOUT
+        - MIKROTIK_TIMEOUT
+        - ADDRESS_LIST_PREFIX
+        - DEFAULT_TIMEOUT
+        - EXTENDED_TIMEOUT
+        - MAX_ACCESS_LEVEL
+        - WIREGUARD_INTERFACE
+        - LOGIN_IP_WHITELIST
+        - TRUSTED_PROXIES
+        - DEV_DEFAULT_IP
+        - SETUP_TOKEN
+        - SESSION_LIFETIME
+        - MAX_LOGIN_ATTEMPTS_PER_HOUR
+        - LOGIN_ATTEMPT_TTL
+        - MAX_AUDIT_LOG_ENTRIES
+        - OTP_STEP
+        - OTP_DIGITS
+        - OTP_ISSUER
+        - GREETING_MESSAGES
+        - LOGIN_HERO_IMAGES

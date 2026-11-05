@@ -1,0 +1,709 @@
+<?php
+// Core helpers. Loaded via src/bootstrap.php.
+
+function base_path(): string
+{
+    static $cached = null;
+    if ($cached !== null) {
+        return $cached;
+    }
+    $dir = dirname($_SERVER['SCRIPT_NAME'] ?? '/');
+    $dir = str_replace('\\', '/', $dir);
+    if (basename($dir) === 'admin') {
+        $dir = dirname($dir);
+    }
+    $dir = rtrim($dir, '/');
+    if ($dir === '' || $dir === '.') {
+        $dir = '';
+    }
+    $cached = $dir;
+    return $cached;
+}
+
+function url_for(string $path): string
+{
+    return base_path() . '/' . ltrim($path, '/');
+}
+
+function ensure_session(): void
+{
+    if (session_status() === PHP_SESSION_NONE) {
+        if (defined('SESSION_LIFETIME')) {
+            ini_set('session.gc_maxlifetime', (string)SESSION_LIFETIME);
+            ini_set('session.cookie_lifetime', (string)SESSION_LIFETIME);
+        }
+        session_start();
+        if (!isset($_SESSION['started_at'])) {
+            $_SESSION['started_at'] = time();
+        }
+    }
+}
+
+function csrf_token(): string
+{
+    ensure_session();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+function verify_csrf_token(?string $token): bool
+{
+    if (!$token) {
+        return false;
+    }
+    ensure_session();
+    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+}
+
+/**
+ * Same-origin check for state-changing requests. Compares host *and* port: browsers send
+ * "Origin: http://host:8080" while HTTP_HOST is "host:8080" (default ports are omitted in both).
+ */
+function origin_matches_host(string $origin, string $httpHost): bool
+{
+    $parts = parse_url($origin);
+    if (!is_array($parts) || empty($parts['host']) || $httpHost === '') {
+        return false;
+    }
+    $originHost = strtolower($parts['host']) . (isset($parts['port']) ? ':' . $parts['port'] : '');
+    return $originHost === strtolower($httpHost);
+}
+
+function origin_allowed(): bool
+{
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if ($origin === '') {
+        return true; // No origin header (likely same-origin form)
+    }
+    return origin_matches_host($origin, (string)($_SERVER['HTTP_HOST'] ?? ''));
+}
+
+function require_csrf_token(?string $token): void
+{
+    if (!origin_allowed() || !verify_csrf_token($token)) {
+        http_response_code(403);
+        echo 'Forbidden';
+        exit;
+    }
+}
+
+function login_ip_allowed(string $ip): bool
+{
+    // Use LOGIN_IP_WHITELIST=0.0.0.0/0 to allow every client.
+    return ip_in_any_cidr($ip, LOGIN_IP_WHITELIST);
+}
+
+function session_expires_at(): ?int
+{
+    if (!defined('SESSION_LIFETIME')) {
+        return null;
+    }
+    ensure_session();
+    $start = $_SESSION['started_at'] ?? time();
+    return $start + SESSION_LIFETIME;
+}
+
+function db(): PDO
+{
+    static $pdo = null;
+    if ($pdo === null) {
+        $dir = dirname(DB_PATH);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0775, true);
+        }
+        $pdo = new PDO(DB_DSN);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        // SQLite only enforces FOREIGN KEY / ON DELETE CASCADE when enabled per connection.
+        $pdo->exec('PRAGMA foreign_keys = ON');
+        $pdo->exec('PRAGMA busy_timeout = 5000');
+        $pdo->exec('PRAGMA journal_mode = WAL');
+        init_db($pdo);
+    }
+    return $pdo;
+}
+
+function init_db(PDO $pdo): void
+{
+    $pdo->exec('CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        user_ip TEXT NOT NULL UNIQUE,
+        otp_secret TEXT NOT NULL,
+        isadmin INTEGER NOT NULL DEFAULT 0,
+        accesslevel INTEGER NOT NULL DEFAULT 0
+    )');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS networks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        accesslevel INTEGER NOT NULL DEFAULT 0,
+        address TEXT NOT NULL
+    )');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS user_to_network (
+        user_id INTEGER NOT NULL,
+        network_id INTEGER NOT NULL,
+        PRIMARY KEY (user_id, network_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
+    )');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS login_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        ip TEXT NOT NULL,
+        success INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+    )');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS audit_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        username TEXT,
+        user_ip TEXT,
+        action TEXT NOT NULL,
+        details TEXT,
+        ip TEXT,
+        created_at INTEGER NOT NULL
+    )');
+
+    $pdo->exec('CREATE TABLE IF NOT EXISTS otp_used (
+        user_id INTEGER NOT NULL,
+        otp_counter INTEGER NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (user_id, otp_counter),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )');
+
+}
+
+/** Setup is only possible while no admin exists (replaces the old setup-completed.txt flag file). */
+function admin_exists(): bool
+{
+    return (int)db()->query('SELECT COUNT(*) FROM users WHERE isadmin = 1')->fetchColumn() > 0;
+}
+
+function is_db_empty(PDO $pdo): bool
+{
+    $tables = ['users', 'networks', 'user_to_network'];
+    foreach ($tables as $table) {
+        $count = (int)$pdo->query("SELECT COUNT(*) FROM {$table}")->fetchColumn();
+        if ($count > 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function fetch_user_by_user_ip(string $userIp): ?array
+{
+    $stmt = db()->prepare('SELECT * FROM users WHERE user_ip = :u LIMIT 1');
+    $stmt->execute([':u' => $userIp]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function fetch_user_by_id(int $id): ?array
+{
+    $stmt = db()->prepare('SELECT * FROM users WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function verify_otp_with_counter(string $secret, string $code): array
+{
+    $code = trim($code);
+    if (!preg_match('/^\d{6}$/', $code)) {
+        return [false, null];
+    }
+    $time = time();
+    for ($i = -1; $i <= 1; $i++) {
+        $counter = intdiv($time + ($i * OTP_STEP), OTP_STEP);
+        if (totp($secret, $time + ($i * OTP_STEP)) === $code) {
+            return [true, $counter];
+        }
+    }
+    return [false, null];
+}
+
+function totp(string $base32Secret, int $time): string
+{
+    $secret = base32_decode($base32Secret);
+    $counter = pack('N*', 0) . pack('N*', intdiv($time, OTP_STEP));
+    $hash = hash_hmac('sha1', $counter, $secret, true);
+    $offset = ord(substr($hash, -1)) & 0x0F;
+    $slice = substr($hash, $offset, 4);
+    $value = unpack('N', $slice)[1] & 0x7FFFFFFF;
+    $mod = 10 ** OTP_DIGITS;
+    return str_pad((string)($value % $mod), OTP_DIGITS, '0', STR_PAD_LEFT);
+}
+
+function base32_decode(string $b32): string
+{
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $b32 = strtoupper(preg_replace('/[^A-Z2-7]/', '', $b32));
+    $bits = '';
+    $output = '';
+    for ($i = 0, $len = strlen($b32); $i < $len; $i++) {
+        $val = strpos($alphabet, $b32[$i]);
+        if ($val === false) {
+            continue;
+        }
+        $bits .= str_pad(decbin($val), 5, '0', STR_PAD_LEFT);
+    }
+    for ($j = 0, $blen = strlen($bits); $j + 8 <= $blen; $j += 8) {
+        $output .= chr(bindec(substr($bits, $j, 8)));
+    }
+    return $output;
+}
+
+function generate_otp_secret(int $length = 32): string
+{
+    $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    $secret = '';
+    for ($i = 0; $i < $length; $i++) {
+        $secret .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+    }
+    return $secret;
+}
+
+function log_login_attempt(string $userIp, string $ip, bool $success): void
+{
+    prune_login_attempts();
+    $stmt = db()->prepare('INSERT INTO login_attempts (username, ip, success, created_at) VALUES (:u, :ip, :s, :ts)');
+    $stmt->execute([
+        ':u' => $userIp,
+        ':ip' => $ip,
+        ':s' => $success ? 1 : 0,
+        ':ts' => time(),
+    ]);
+    if (!$success) {
+        log_event('login_failed', 'Wrong OTP or user not found', null, null, $userIp);
+    }
+}
+
+function otp_counter_used(int $userId, int $counter): bool
+{
+    $stmt = db()->prepare('SELECT 1 FROM otp_used WHERE user_id = :uid AND otp_counter = :ctr LIMIT 1');
+    $stmt->execute([':uid' => $userId, ':ctr' => $counter]);
+    return (bool)$stmt->fetchColumn();
+}
+
+function mark_otp_counter_used(int $userId, int $counter): void
+{
+    prune_otp_counters();
+    $stmt = db()->prepare('INSERT OR IGNORE INTO otp_used (user_id, otp_counter, created_at) VALUES (:uid, :ctr, :ts)');
+    $stmt->execute([':uid' => $userId, ':ctr' => $counter, ':ts' => time()]);
+}
+
+function prune_otp_counters(): void
+{
+    // Keep only recent counters (~10 minutes worth) to prevent unbounded growth.
+    $cutoff = time() - (OTP_STEP * 20);
+    db()->prepare('DELETE FROM otp_used WHERE created_at < :cutoff')->execute([':cutoff' => $cutoff]);
+}
+
+function prune_login_attempts(): void
+{
+    $cutoff = time() - (int)LOGIN_ATTEMPT_TTL;
+    db()->prepare('DELETE FROM login_attempts WHERE created_at < :cutoff')->execute([':cutoff' => $cutoff]);
+}
+
+function prune_audit_log(): void
+{
+    $limit = (int)MAX_AUDIT_LOG_ENTRIES;
+    $count = (int)db()->query('SELECT COUNT(*) FROM audit_log')->fetchColumn();
+    if ($count <= $limit) {
+        return;
+    }
+    $toDelete = $count - $limit;
+    $stmt = db()->prepare('DELETE FROM audit_log WHERE id IN (SELECT id FROM audit_log ORDER BY id ASC LIMIT :lim)');
+    $stmt->bindValue(':lim', $toDelete, PDO::PARAM_INT);
+    $stmt->execute();
+}
+
+function log_event(string $action, string $details = '', ?int $userId = null, ?string $username = null, ?string $userIp = null): void
+{
+    $ip = PHP_SAPI === 'cli' ? 'cli' : client_ip();
+    $stmt = db()->prepare('INSERT INTO audit_log (user_id, username, user_ip, action, details, ip, created_at) VALUES (:uid, :un, :uip, :a, :d, :ip, :ts)');
+    $stmt->execute([
+        ':uid' => $userId,
+        ':un' => $username,
+        ':uip' => $userIp,
+        ':a' => $action,
+        ':d' => $details,
+        ':ip' => $ip,
+        ':ts' => time(),
+    ]);
+    prune_audit_log();
+}
+function login_rate_limited(string $userIp, string $ip): bool
+{
+    $windowStart = time() - 3600; // 1 hour window
+    $stmt = db()->prepare('SELECT COUNT(*) FROM login_attempts WHERE success = 0 AND created_at >= :ts AND (username = :u OR ip = :ip)');
+    $stmt->execute([':ts' => $windowStart, ':u' => $userIp, ':ip' => $ip]);
+    $failures = (int)$stmt->fetchColumn();
+    return $failures >= (int)MAX_LOGIN_ATTEMPTS_PER_HOUR;
+}
+
+function login_user(string $userIp, string $otp, string $ip = ''): bool
+{
+    $user = fetch_user_by_user_ip($userIp);
+    if (!$user) {
+        log_login_attempt($userIp, $ip, false);
+        return false;
+    }
+    if ($ip !== '' && login_rate_limited($userIp, $ip)) {
+        log_event('login_rate_limited', 'Too many failed attempts', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+        return false;
+    }
+    [$otpOk, $counter] = verify_otp_with_counter($user['otp_secret'], $otp);
+    if (!$otpOk) {
+        log_login_attempt($userIp, $ip, false);
+        return false;
+    }
+    if ($counter !== null && otp_counter_used((int)$user['id'], $counter)) {
+        log_login_attempt($userIp, $ip, false);
+        log_event('otp_reuse_blocked', 'Attempted reused OTP', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+        return false;
+    }
+    if ($counter !== null) {
+        mark_otp_counter_used((int)$user['id'], $counter);
+    }
+    ensure_session();
+    $_SESSION['user_id'] = (int)$user['id'];
+    log_login_attempt($userIp, $ip, true);
+    log_event('login_success', 'User logged in', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+    return true;
+}
+
+function logout_user(): void
+{
+    ensure_session();
+    session_unset();
+    session_destroy();
+}
+
+function current_user(): ?array
+{
+    ensure_session();
+    if (!isset($_SESSION['user_id'])) {
+        return null;
+    }
+    return fetch_user_by_id((int)$_SESSION['user_id']);
+}
+
+function require_login(): void
+{
+    if (!current_user()) {
+        header('Location: ' . url_for('login.php'));
+        exit;
+    }
+}
+
+function require_admin(): void
+{
+    $user = current_user();
+    if (!$user || (int)$user['isadmin'] !== 1) {
+        header('Location: ' . url_for('index.php'));
+        exit;
+    }
+}
+
+function get_default_networks_for_user(int $userId): array
+{
+    $stmt = db()->prepare('SELECT n.* FROM networks n JOIN user_to_network un ON n.id = un.network_id WHERE un.user_id = :uid ORDER BY n.name');
+    $stmt->execute([':uid' => $userId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function get_user_default_network_ids(int $userId): array
+{
+    $stmt = db()->prepare('SELECT network_id FROM user_to_network WHERE user_id = :uid');
+    $stmt->execute([':uid' => $userId]);
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+function set_user_default_networks(int $userId, array $networkIds): void
+{
+    $pdo = db();
+    $pdo->beginTransaction();
+    $pdo->prepare('DELETE FROM user_to_network WHERE user_id = :uid')->execute([':uid' => $userId]);
+    $stmt = $pdo->prepare('INSERT INTO user_to_network (user_id, network_id) VALUES (:uid, :nid)');
+    foreach ($networkIds as $nid) {
+        $stmt->execute([':uid' => $userId, ':nid' => (int)$nid]);
+    }
+    $pdo->commit();
+}
+
+function get_all_networks(): array
+{
+    return db()->query('SELECT * FROM networks ORDER BY accesslevel, name')->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function user_can_access_network(array $user, array $network): bool
+{
+    return (int)$user['accesslevel'] >= (int)$network['accesslevel'];
+}
+
+function address_list_name(string $userIp): string
+{
+    return ADDRESS_LIST_PREFIX . $userIp;
+}
+
+function is_valid_address_list_name(string $listName): bool
+{
+    return strncmp($listName, ADDRESS_LIST_PREFIX, strlen(ADDRESS_LIST_PREFIX)) === 0;
+}
+
+function get_current_address_list_entries(string $userIp): array
+{
+    $listName = address_list_name($userIp);
+    if (!is_valid_address_list_name($listName)) {
+        return [];
+    }
+    $resp = router()->listAddressList($listName);
+    return $resp['success'] && is_array($resp['data']) ? $resp['data'] : [];
+}
+
+function get_all_address_list_entries(): array
+{
+    $resp = router()->listAddressList();
+    if (!$resp['success'] || !is_array($resp['data'])) {
+        return [
+            'success' => false,
+            'error' => $resp['error'] ?? 'API error',
+            'status' => $resp['status'] ?? null,
+            'data' => [],
+            'fingerprint' => $resp['fingerprint'] ?? null,
+        ];
+    }
+    $filtered = array_values(array_filter($resp['data'], function ($entry) {
+        return isset($entry['list']) && is_valid_address_list_name((string)$entry['list']);
+    }));
+    return ['success' => true, 'data' => $filtered, 'fingerprint' => $resp['fingerprint'] ?? null];
+}
+
+function current_accesses_by_users(array $users): array
+{
+    $resp = get_all_address_list_entries();
+    if (!$resp['success']) {
+        return [
+            'success' => false,
+            'error' => $resp['error'] ?? 'API error',
+            'status' => $resp['status'] ?? null,
+            'data' => [],
+            'fingerprint' => $resp['fingerprint'] ?? null,
+        ];
+    }
+    $data = [];
+    foreach ($users as $u) {
+        if (!isset($u['user_ip'])) {
+            continue;
+        }
+        $listName = address_list_name($u['user_ip']);
+        $data[$u['user_ip']] = array_values(array_filter($resp['data'], fn($entry) => ($entry['list'] ?? null) === $listName));
+    }
+    return ['success' => true, 'data' => $data, 'fingerprint' => $resp['fingerprint'] ?? null];
+}
+
+function admin_access_overview(): array
+{
+    $allUsers = db()->query('SELECT id, username, user_ip FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
+    $accessReport = current_accesses_by_users($allUsers);
+    $lastLogins = [];
+    $loggedInToday = [];
+    $midnight = strtotime('today');
+    $stmt = db()->prepare('SELECT DISTINCT COALESCE(CAST(user_id AS TEXT), username, user_ip) AS uid_key FROM audit_log WHERE action = :a AND created_at >= :ts');
+    $stmt->execute([':a' => 'login_success', ':ts' => $midnight]);
+    $keys = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($keys as $k) {
+        if ($k !== null && $k !== '') {
+            $loggedInToday[$k] = true;
+        }
+    }
+    foreach ($allUsers as $u) {
+        $lastLogins[$u['user_ip']] = last_login_for_user_ip($u['user_ip']);
+    }
+    return [
+        'allUsers' => $allUsers,
+        'accessReport' => $accessReport,
+        'lastLogins' => $lastLogins,
+        'loggedInToday' => $loggedInToday,
+    ];
+}
+
+function mikrotik_identity(): array
+{
+    $resp = router()->identity();
+    $name = $resp['success'] && isset($resp['data']['name']) ? (string)$resp['data']['name'] : null;
+    if ($name === null) {
+        return ['success' => false, 'error' => $resp['error'] ?? 'Identity not found', 'data' => null];
+    }
+    return ['success' => true, 'error' => null, 'data' => ['name' => $name]];
+}
+
+function mikrotik_clock(): array
+{
+    $resp = router()->clock();
+    $row = $resp['success'] && is_array($resp['data']) ? $resp['data'] : [];
+    $data = [
+        'time' => isset($row['time']) ? (string)$row['time'] : null,
+        'date' => isset($row['date']) ? (string)$row['date'] : null,
+        'time_zone' => isset($row['time-zone-name']) ? (string)$row['time-zone-name'] : null,
+        'gmt_offset' => isset($row['gmt-offset']) ? (string)$row['gmt-offset'] : null,
+    ];
+    $hasTime = $data['time'] !== null || $data['date'] !== null;
+    if (!$hasTime) {
+        return ['success' => false, 'error' => $resp['error'] ?? 'Clock not found', 'data' => null];
+    }
+    return ['success' => true, 'error' => null, 'data' => $data];
+}
+
+function mikrotik_uptime(): array
+{
+    $resp = router()->resource();
+    $uptime = $resp['success'] && isset($resp['data']['uptime']) ? (string)$resp['data']['uptime'] : null;
+    if ($uptime === null) {
+        return ['success' => false, 'error' => $resp['error'] ?? 'Uptime not found', 'data' => null];
+    }
+    return ['success' => true, 'error' => null, 'data' => ['uptime' => $uptime]];
+}
+
+function mikrotik_wireguard_peers(): array
+{
+    $resp = router()->wireguardPeers();
+    if (!$resp['success'] || !is_array($resp['data'])) {
+        return ['success' => false, 'error' => $resp['error'] ?? 'API error', 'data' => []];
+    }
+    $peers = $resp['data'];
+    $iface = defined('WIREGUARD_INTERFACE') ? trim((string)WIREGUARD_INTERFACE) : '';
+    if ($iface !== '') {
+        $peers = array_values(array_filter($peers, function ($peer) use ($iface) {
+            $pIface = $peer['interface'] ?? $peer['interface-name'] ?? '';
+            return is_string($pIface) && trim($pIface) === $iface;
+        }));
+    }
+    return ['success' => true, 'data' => $peers];
+}
+
+function last_login_for_user_ip(string $userIp): ?int
+{
+    $stmt = db()->prepare('SELECT created_at FROM audit_log WHERE action = :action AND user_ip = :uip ORDER BY id DESC LIMIT 1');
+    $stmt->execute([':action' => 'login_success', ':uip' => $userIp]);
+    $val = $stmt->fetchColumn();
+    return $val !== false ? (int)$val : null;
+}
+
+function add_address_list_entry(string $userIp, array $network, string $timeout = DEFAULT_TIMEOUT): array
+{
+    $listName = address_list_name($userIp);
+    if (!is_valid_address_list_name($listName)) {
+        return ['success' => false, 'status' => null, 'message' => 'Invalid address list'];
+    }
+    $resp = router()->addAddressListEntry($listName, (string)$network['address'], (string)($network['name'] ?? 'network'), $timeout);
+    return [
+        'success' => $resp['success'],
+        'status' => $resp['status'] ?? null,
+        'message' => $resp['success'] ? 'Applied' : ($resp['error'] ?? 'Failed'),
+    ];
+}
+
+function remove_address_list_entries(string $userIp): array
+{
+    $listName = address_list_name($userIp);
+    if (!is_valid_address_list_name($listName)) {
+        return ['success' => false, 'message' => 'Invalid address list', 'status' => null, 'deleted' => 0, 'total' => 0];
+    }
+    $resp = router()->listAddressList($listName);
+    if (!$resp['success'] || !is_array($resp['data'])) {
+        return ['success' => false, 'message' => $resp['error'] ?? 'API error', 'status' => $resp['status'] ?? null, 'deleted' => 0, 'total' => 0];
+    }
+    $entries = array_values(array_filter($resp['data'], fn($entry) => isset($entry['.id'])));
+    $deleted = 0;
+    $errors = [];
+    foreach ($entries as $entry) {
+        $id = (string)$entry['.id'];
+        $del = router()->removeAddressListEntry($id);
+        if ($del['success']) {
+            $deleted++;
+        } else {
+            $errors[] = $del['error'] ?? ('Delete failed for ' . $id);
+        }
+    }
+    return [
+        'success' => empty($errors),
+        'message' => empty($errors) ? 'Entries removed.' : implode('; ', array_unique($errors)),
+        'deleted' => $deleted,
+        'total' => count($entries),
+        'errors' => $errors,
+    ];
+}
+
+function apply_networks_to_user(array $user, array $networks, string $timeout = DEFAULT_TIMEOUT): array
+{
+    $results = [];
+    $existingAddresses = array_map('strval', array_column(get_current_address_list_entries($user['user_ip']), 'address'));
+    foreach ($networks as $network) {
+        if (!user_can_access_network($user, $network)) {
+            $results[] = ['network' => $network['name'], 'success' => false, 'message' => 'Insufficient access level'];
+            continue;
+        }
+        if (in_array($network['address'], $existingAddresses, true)) {
+            $results[] = [
+                'network' => $network['name'],
+                'success' => true,
+                'status' => null,
+                'message' => 'Already present',
+            ];
+            continue;
+        }
+        $result = add_address_list_entry($user['user_ip'], $network, $timeout);
+        $results[] = [
+            'network' => $network['name'],
+            'success' => $result['success'],
+            'status' => $result['status'] ?? null,
+            'message' => $result['success'] ? 'Applied' : ($result['message'] ?? 'Failed'),
+        ];
+    }
+    return $results;
+}
+
+function save_network(?int $id, string $name, int $accesslevel, string $address): void
+{
+    $level = max(0, min($accesslevel, (int)MAX_ACCESS_LEVEL));
+    if ($id === null) {
+        $stmt = db()->prepare('INSERT INTO networks (name, accesslevel, address) VALUES (:n, :a, :addr)');
+        $stmt->execute([':n' => $name, ':a' => $level, ':addr' => $address]);
+    } else {
+        $stmt = db()->prepare('UPDATE networks SET name = :n, accesslevel = :a, address = :addr WHERE id = :id');
+        $stmt->execute([':n' => $name, ':a' => $level, ':addr' => $address, ':id' => $id]);
+    }
+}
+
+function delete_network(int $id): void
+{
+    $stmt = db()->prepare('DELETE FROM networks WHERE id = :id');
+    $stmt->execute([':id' => $id]);
+}
+
+function save_user(?int $id, string $username, string $userIp, string $otp_secret, int $isadmin, int $accesslevel): void
+{
+    $level = max(0, min($accesslevel, (int)MAX_ACCESS_LEVEL));
+    if ($id === null) {
+        $stmt = db()->prepare('INSERT INTO users (username, user_ip, otp_secret, isadmin, accesslevel) VALUES (:n, :u, :o, :i, :a)');
+        $stmt->execute([':n' => $username, ':u' => $userIp, ':o' => $otp_secret, ':i' => $isadmin, ':a' => $level]);
+    } else {
+        $stmt = db()->prepare('UPDATE users SET username = :n, user_ip = :u, otp_secret = :o, isadmin = :i, accesslevel = :a WHERE id = :id');
+        $stmt->execute([':n' => $username, ':u' => $userIp, ':o' => $otp_secret, ':i' => $isadmin, ':a' => $level, ':id' => $id]);
+    }
+}
+
+function delete_user(int $id): void
+{
+    $stmt = db()->prepare('DELETE FROM users WHERE id = :id');
+    $stmt->execute([':id' => $id]);
+}
