@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../src/bootstrap.php';
-require_admin();
+require_permission('view_logs');
 
 $search = trim($_GET['q'] ?? '');
 $actionFilter = trim($_GET['action'] ?? '');

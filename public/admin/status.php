@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../src/bootstrap.php';
 require_once __DIR__ . '/../../src/statistics.php';
-require_admin();
+require_permission('view_status');
 
 $identityRes = mikrotik_identity();
 $uptimeRes = mikrotik_uptime();

@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../src/bootstrap.php';
 require_once __DIR__ . '/../../src/backup.php';
-require_admin();
+require_permission('manage_users');
 
 ensure_session();
 $flash = $_SESSION['user_flash'] ?? null;
@@ -12,27 +12,44 @@ $networks = get_all_networks();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf_token($_POST['csrf_token'] ?? null);
   $action = $_POST['action'] ?? '';
+  $role = (string)($_POST['role'] ?? 'user');
+  if (!is_valid_role($role)) {
+    $role = 'user';
+  }
   if ($action === 'create') {
-    save_user(null, trim($_POST['username'] ?? ''), trim($_POST['user_ip'] ?? ''), trim($_POST['otp_secret'] ?? ''), isset($_POST['isadmin']) ? 1 : 0, (int)($_POST['accesslevel'] ?? 0));
+    save_user(null, trim($_POST['username'] ?? ''), trim($_POST['user_ip'] ?? ''), trim($_POST['otp_secret'] ?? ''), $role, (int)($_POST['accesslevel'] ?? 0));
+    log_event('user_created', 'Created ' . trim($_POST['username'] ?? '') . ' (' . trim($_POST['user_ip'] ?? '') . ') as ' . $role, null, null, trim($_POST['user_ip'] ?? ''));
   } elseif ($action === 'update') {
     $userId = (int)($_POST['id'] ?? 0);
-    save_user($userId, trim($_POST['username'] ?? ''), trim($_POST['user_ip'] ?? ''), trim($_POST['otp_secret'] ?? ''), isset($_POST['isadmin']) ? 1 : 0, (int)($_POST['accesslevel'] ?? 0));
-    $networkIds = $_POST['network_ids'][$userId] ?? [];
-    set_user_default_networks($userId, array_map('intval', $networkIds));
-  } elseif ($action === 'delete') {
-    delete_user((int)($_POST['id'] ?? 0));
-  } elseif ($action === 'impersonate') {
-    $targetId = (int)($_POST['id'] ?? 0);
-    $target = fetch_user_by_id($targetId);
-    $admin = current_user();
-    if ($target && $admin) {
-      ensure_session();
-      $_SESSION['impersonator_id'] = (int)$admin['id'];
-      $_SESSION['user_id'] = (int)$target['id'];
-      log_event('impersonate_start', 'Impersonate as ' . ($target['username'] ?? 'unknown') . ' (' . ($target['user_ip'] ?? '') . ')', (int)$admin['id'], $admin['username'] ?? null, $admin['user_ip'] ?? null);
+    $target = fetch_user_by_id($userId);
+    if (!$target) {
+      $_SESSION['user_flash'] = ['type' => 'danger', 'message' => 'User not found.'];
+    } elseif (would_remove_last_admin($target, $role)) {
+      $_SESSION['user_flash'] = ['type' => 'danger', 'message' => 'The last admin cannot be demoted – otherwise the setup page would re-open.'];
+    } else {
+      save_user($userId, trim($_POST['username'] ?? ''), trim($_POST['user_ip'] ?? ''), trim($_POST['otp_secret'] ?? ''), $role, (int)($_POST['accesslevel'] ?? 0));
+      $networkIds = $_POST['network_ids'][$userId] ?? [];
+      set_user_default_networks($userId, array_map('intval', $networkIds));
+      if ($role !== $target['role']) {
+        log_event('user_role_changed', $target['role'] . ' -> ' . $role, $userId, $target['username'], $target['user_ip']);
+      }
     }
-    header('Location: ' . url_for('index.php'));
-    exit;
+  } elseif ($action === 'delete') {
+    $target = fetch_user_by_id((int)($_POST['id'] ?? 0));
+    if ($target && would_remove_last_admin($target, null)) {
+      $_SESSION['user_flash'] = ['type' => 'danger', 'message' => 'The last admin cannot be deleted – otherwise the setup page would re-open.'];
+    } elseif ($target) {
+      delete_user((int)$target['id']);
+      log_event('user_deleted', 'Deleted ' . $target['username'] . ' (' . $target['user_ip'] . ')', null, $target['username'], $target['user_ip']);
+    }
+  } elseif ($action === 'impersonate') {
+    $target = fetch_user_by_id((int)($_POST['id'] ?? 0));
+    $admin = current_user();
+    if ($target && $admin && (int)$target['id'] !== (int)$admin['id']) {
+      start_impersonation($admin, $target);
+      header('Location: ' . url_for('index.php'));
+      exit;
+    }
   } elseif ($action === 'export_users') {
     $json = export_users_json();
     header('Content-Type: application/json');
@@ -101,11 +118,13 @@ include view_path('header');
         <label class="form-label" for="user-access-level">Access level</label>
         <input id="user-access-level" type="number" name="accesslevel" class="form-control" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>" value="10" required>
       </div>
-      <div class="col-md-1 d-flex align-items-end">
-        <div class="form-check">
-          <input class="form-check-input" type="checkbox" name="isadmin" id="adminNew">
-          <label class="form-check-label" for="adminNew">Admin</label>
-        </div>
+      <div class="col-md-1">
+        <label class="form-label" for="user-role">Role</label>
+        <select name="role" id="user-role" class="form-select">
+          <?php foreach (ROLES as $r): ?>
+            <option value="<?= $r ?>"><?= htmlspecialchars(role_label($r)) ?></option>
+          <?php endforeach; ?>
+        </select>
       </div>
       <div class="col-12">
         <button class="btn btn-primary" type="submit">Add user</button>
@@ -117,14 +136,18 @@ include view_path('header');
 <?php foreach ($users as $u): $defaults = get_user_default_network_ids($u['id']); ?>
   <div class="card shadow-sm mb-3">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span>User: <?= htmlspecialchars($u['username']) ?> (<?= htmlspecialchars($u['user_ip']) ?>)</span>
+      <span>User: <?= htmlspecialchars($u['username']) ?> (<?= htmlspecialchars($u['user_ip']) ?>)
+        <span class="badge <?= $u['role'] === 'admin' ? 'bg-danger' : ($u['role'] === 'superuser' ? 'bg-primary' : 'bg-secondary') ?> ms-1"><?= htmlspecialchars(role_label($u['role'])) ?></span>
+      </span>
       <div class="d-flex gap-2">
-        <form method="post" onsubmit="return confirm('Impersonate this user?');">
+        <?php if ((int)$u['id'] !== (int)current_user()['id']): ?>
+        <form method="post" onsubmit="return confirm('Act as this user? You can return to your admin account at any time.');">
           <input type="hidden" name="action" value="impersonate">
           <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
           <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
           <button class="btn btn-sm btn-outline-primary">Impersonate</button>
         </form>
+        <?php endif; ?>
         <form method="post" onsubmit="return confirm('Delete user?');">
           <input type="hidden" name="action" value="delete">
           <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
@@ -158,11 +181,13 @@ include view_path('header');
           <label class="form-label" for="user-access-level-<?= (int)$u['id'] ?>">Access level</label>
           <input id="user-access-level-<?= (int)$u['id'] ?>" type="number" name="accesslevel" class="form-control" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>" value="<?= (int)$u['accesslevel'] ?>" required>
         </div>
-        <div class="col-md-1 d-flex align-items-end">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="isadmin" id="admin<?= (int)$u['id'] ?>" <?= (int)$u['isadmin'] === 1 ? 'checked' : '' ?>>
-            <label class="form-check-label" for="admin<?= (int)$u['id'] ?>">Admin</label>
-          </div>
+        <div class="col-md-1">
+          <label class="form-label" for="user-role-<?= (int)$u['id'] ?>">Role</label>
+          <select name="role" id="user-role-<?= (int)$u['id'] ?>" class="form-select">
+            <?php foreach (ROLES as $r): ?>
+              <option value="<?= $r ?>" <?= $u['role'] === $r ? 'selected' : '' ?>><?= htmlspecialchars(role_label($r)) ?></option>
+            <?php endforeach; ?>
+          </select>
         </div>
         <div class="col-12">
           <label class="form-label">Default networks</label>

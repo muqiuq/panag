@@ -23,7 +23,7 @@ foreach (GREETING_MESSAGES as $msg) {
 $allUsers = [];
 $accessReport = ['success' => false, 'data' => [], 'error' => '', 'fingerprint' => null];
 $lastLogins = [];
-if ((int)$user['isadmin'] === 1) {
+if (is_admin($user)) {
   $adminOverview = admin_access_overview();
   $allUsers = $adminOverview['allUsers'];
   $accessReport = $adminOverview['accessReport'];
@@ -74,7 +74,7 @@ include view_path('header');
         <div class="mt-3" id="defaultAccessResult"></div>
       </div>
     </div>
-    <?php if ((int)$user['isadmin'] === 1): ?>
+    <?php if (is_admin($user)): ?>
       <?php include view_path('partials/api_status_card'); ?>
     <?php endif; ?>
   </div>

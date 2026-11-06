@@ -107,7 +107,7 @@ function handle_revoke_self(array $user): void
 
 function handle_revoke_access(array $user): void
 {
-    if ((int)$user['isadmin'] !== 1) {
+    if (!can($user, 'revoke_others')) {
         http_response_code(403);
         json_response(false, 'Forbidden');
     }

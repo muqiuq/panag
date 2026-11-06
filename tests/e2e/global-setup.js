@@ -26,7 +26,7 @@ module.exports = async (config) => {
 
   fs.mkdirSync(path.join(__dirname, '.auth'), { recursive: true });
   const browser = await chromium.launch();
-  for (const key of ['admin', 'regular']) {
+  for (const key of ['admin', 'admin2', 'regular', 'superuser']) {
     const user = USERS[key];
     const context = await browser.newContext({ baseURL, extraHTTPHeaders: { 'X-Forwarded-For': user.ip } });
     const page = await context.newPage();

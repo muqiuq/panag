@@ -142,11 +142,14 @@ php bin/create-admin.php --ip=10.8.0.2 --name="Your Name"
 * **Memory:** about 30 MB RSS idle. `APACHE_MAX_WORKERS` (default 5) caps parallel requests.
 * **Locked out by the login rate limit:** `/container shell …` then `php bin/reset-login-attempts.php`.
 * **Update:** stop and remove the container, add it again with the new image/tag. All data lives in
-  the `panag-data` mount and is kept.
+  the `panag-data` mount and is kept. Database migrations run automatically on start; a consistent
+  copy is written to `/data/backups/` first (the newest 5 are kept).
 * **Backup:** copy `usb1/panag-data/panag.sqlite`, or use *Users → Export* and *Networks → Export*.
 
 ## Migrating from the pre-container layout (V0.1)
 
 * Settings moved from `config/config.php` to environment variables (step 4).
-* Copy the old `data/panag.sqlite` into the new data mount. `setup-completed.txt` is no longer used –
-  setup is disabled automatically because the database already contains an admin.
+* Copy the old `data/panag.sqlite` into the new data mount. On first start it is migrated
+  (admins keep the admin role, everybody else becomes a user; a backup is written beforehand).
+  `setup-completed.txt` is no longer used – setup stays disabled because the database contains an admin.
+* Old user exports (`isadmin: 0/1`) can still be imported.

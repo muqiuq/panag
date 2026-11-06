@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../../src/bootstrap.php';
 require_once __DIR__ . '/../../src/backup.php';
-require_admin();
+require_permission('manage_networks');
 
 ensure_session();
 $flash = $_SESSION['network_flash'] ?? null;

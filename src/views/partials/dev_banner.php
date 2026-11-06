@@ -7,7 +7,7 @@ if (!is_dev_mode()) {
 $__devIp = client_ip();
 $__devUsers = [];
 try {
-    $__devUsers = db()->query('SELECT username, user_ip, isadmin FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
+    $__devUsers = db()->query('SELECT username, user_ip, role FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     // DB not ready – the free-text field still works.
 }
@@ -20,7 +20,7 @@ try {
     <input type="text" name="ip" list="devIpList" value="<?= htmlspecialchars($__devIp) ?>" class="form-control form-control-sm" style="width: 11rem" aria-label="Dev client IP">
     <datalist id="devIpList">
       <?php foreach ($__devUsers as $__u): ?>
-        <option value="<?= htmlspecialchars($__u['user_ip']) ?>"><?= htmlspecialchars($__u['username']) ?><?= (int)$__u['isadmin'] === 1 ? ' (admin)' : '' ?></option>
+        <option value="<?= htmlspecialchars($__u['user_ip']) ?>"><?= htmlspecialchars($__u['username']) ?><?= $__u['role'] !== 'user' ? ' (' . htmlspecialchars($__u['role']) . ')' : '' ?></option>
       <?php endforeach; ?>
     </datalist>
     <button class="btn btn-sm btn-outline-dark" type="submit">Switch (logs out)</button>

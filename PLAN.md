@@ -377,6 +377,13 @@ Migrationssystem, Migrationen 001–003, `can()`, Ersatz aller `isadmin`-Prüfun
 
 **Fertig, wenn:** Eine Kopie der Produktions-DB migriert ohne Verlust, und die E2E-Tests für alle drei Rollen sind grün.
 
+**Stand 2026-11-06:** Umgesetzt und grün (59 PHPUnit-, 28 E2E-Tests).
+- Migrationen über `PRAGMA user_version`; `bin/migrate.php` läuft beim Container-Start und schreibt vorher ein konsistentes Backup (`VACUUM INTO`, die letzten 5 bleiben). Getestet mit einer Fixture-DB im V0.1-Schema inkl. verwaister Zeilen und mit der bestehenden Dev-DB.
+- Rollen `user`/`superuser`/`admin` mit `can()`. Der letzte Admin kann weder gelöscht noch herabgestuft werden, sonst würde sich das Setup wieder öffnen.
+- `profile.php`: Superuser und Admins wählen ihre eigenen Default-Netze (der Server erzwingt die Level-Grenze), User sehen sie nur. Die komfortable Oberfläche folgt in Phase 3.
+- Impersonation mit Banner und "Back to admin", Start und Ende im Audit-Log.
+- Backup-Import akzeptiert weiterhin V0.1-Exporte (`isadmin`).
+
 ### Phase 2 – Freigabezeiten und Freigabelogik (Aufwand M)
 Dauern pro User inkl. Validierung, Verlängern ohne Kürzen, Widerruf pro Eintrag, Anzeige von Rest- und Ablaufzeit, API-Endpunkte (`grant`, `extend`, `revoke`, `prefs`).
 

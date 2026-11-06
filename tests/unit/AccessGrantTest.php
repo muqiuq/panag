@@ -20,9 +20,9 @@ final class AccessGrantTest extends TestCase
         set_router(null);
     }
 
-    private function user(string $ip, int $level, int $admin = 0): array
+    private function user(string $ip, int $level, string $role = 'user'): array
     {
-        save_user(null, 'User ' . $ip, $ip, 'JBSWY3DPEHPK3PXP', $admin, $level);
+        save_user(null, 'User ' . $ip, $ip, 'JBSWY3DPEHPK3PXP', $role, $level);
         return fetch_user_by_user_ip($ip);
     }
 
@@ -104,7 +104,59 @@ final class AccessGrantTest extends TestCase
         $this->assertFalse(admin_exists());
         $this->user('10.0.0.2', 5);
         $this->assertFalse(admin_exists());
-        $this->user('10.0.0.1', 15, 1);
+        $this->user('10.0.0.1', 15, 'admin');
         $this->assertTrue(admin_exists());
+    }
+
+    public function testSuperuserCanOnlyPickNetworksWithinOwnLevel(): void
+    {
+        $super = $this->user('10.0.0.3', 5, 'superuser');
+        $low = $this->network('Office', 1, '10.10.0.0/24');
+        $high = $this->network('Core', 9, '10.255.0.0/28');
+
+        $result = set_own_default_networks($super, [(int)$low['id'], (int)$high['id'], 999]);
+
+        $this->assertSame([(int)$low['id']], $result['saved']);
+        $this->assertEqualsCanonicalizing([(int)$high['id'], 999], $result['rejected']);
+        $this->assertSame([(int)$low['id']], get_user_default_network_ids((int)$super['id']));
+    }
+
+    public function testRegularUserCannotPickOwnDefaults(): void
+    {
+        $user = $this->user('10.0.0.2', 5);
+        $this->expectException(RuntimeException::class);
+        set_own_default_networks($user, []);
+    }
+
+    public function testLastAdminCannotBeRemovedOrDemoted(): void
+    {
+        $admin = $this->user('10.0.0.1', 15, 'admin');
+        $this->assertTrue(would_remove_last_admin($admin, null));
+        $this->assertTrue(would_remove_last_admin($admin, 'superuser'));
+        $this->assertFalse(would_remove_last_admin($admin, 'admin'));
+
+        $this->user('10.0.0.5', 15, 'admin');
+        $this->assertFalse(would_remove_last_admin($admin, null));
+        $this->assertFalse(would_remove_last_admin($this->user('10.0.0.2', 5), null));
+    }
+
+    public function testImportAcceptsLegacyIsadminExports(): void
+    {
+        require_once __DIR__ . '/../../src/backup.php';
+        $json = json_encode([
+            ['username' => 'Old Admin', 'user_ip' => '10.8.0.2', 'otp_secret' => 'JBSWY3DPEHPK3PXP', 'isadmin' => 1, 'accesslevel' => 15],
+            ['username' => 'Old User', 'user_ip' => '10.8.0.3', 'otp_secret' => 'JBSWY3DPEHPK3PXP', 'isadmin' => 0, 'accesslevel' => 3],
+            ['username' => 'New Super', 'user_ip' => '10.8.0.4', 'otp_secret' => 'JBSWY3DPEHPK3PXP', 'role' => 'superuser', 'accesslevel' => 8, 'extended_duration_sec' => 1800],
+        ]);
+        $result = import_users_json($json);
+        $this->assertSame(3, $result['imported']);
+        $this->assertSame('admin', fetch_user_by_user_ip('10.8.0.2')['role']);
+        $this->assertSame('user', fetch_user_by_user_ip('10.8.0.3')['role']);
+        $super = fetch_user_by_user_ip('10.8.0.4');
+        $this->assertSame('superuser', $super['role']);
+        $this->assertSame(1800, (int)$super['extended_duration_sec']);
+
+        $roundTrip = json_decode(export_users_json(), true);
+        $this->assertSame('superuser', $roundTrip[array_search('10.8.0.4', array_column($roundTrip, 'user_ip'), true)]['role']);
     }
 }

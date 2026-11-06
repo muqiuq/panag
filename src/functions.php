@@ -105,84 +105,42 @@ function session_expires_at(): ?int
     return $start + SESSION_LIFETIME;
 }
 
-function db(): PDO
+/** Open a connection with PANAG's per-connection settings (no migrations). */
+function db_connect(?string $dsn = null): PDO
 {
-    static $pdo = null;
-    if ($pdo === null) {
+    $dsn = $dsn ?? DB_DSN;
+    if ($dsn === DB_DSN) {
         $dir = dirname(DB_PATH);
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
-        $pdo = new PDO(DB_DSN);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        // SQLite only enforces FOREIGN KEY / ON DELETE CASCADE when enabled per connection.
-        $pdo->exec('PRAGMA foreign_keys = ON');
-        $pdo->exec('PRAGMA busy_timeout = 5000');
-        $pdo->exec('PRAGMA journal_mode = WAL');
-        init_db($pdo);
     }
+    $pdo = new PDO($dsn);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    // SQLite only enforces FOREIGN KEY / ON DELETE CASCADE when enabled per connection.
+    $pdo->exec('PRAGMA foreign_keys = ON');
+    $pdo->exec('PRAGMA busy_timeout = 5000');
+    $pdo->exec('PRAGMA journal_mode = WAL');
     return $pdo;
 }
 
-function init_db(PDO $pdo): void
+/** Shared connection; applies pending migrations (normally already done by bin/migrate.php at start). */
+function db(): PDO
 {
-    $pdo->exec('CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        user_ip TEXT NOT NULL UNIQUE,
-        otp_secret TEXT NOT NULL,
-        isadmin INTEGER NOT NULL DEFAULT 0,
-        accesslevel INTEGER NOT NULL DEFAULT 0
-    )');
-
-    $pdo->exec('CREATE TABLE IF NOT EXISTS networks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        accesslevel INTEGER NOT NULL DEFAULT 0,
-        address TEXT NOT NULL
-    )');
-
-    $pdo->exec('CREATE TABLE IF NOT EXISTS user_to_network (
-        user_id INTEGER NOT NULL,
-        network_id INTEGER NOT NULL,
-        PRIMARY KEY (user_id, network_id),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-        FOREIGN KEY (network_id) REFERENCES networks(id) ON DELETE CASCADE
-    )');
-
-    $pdo->exec('CREATE TABLE IF NOT EXISTS login_attempts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        ip TEXT NOT NULL,
-        success INTEGER NOT NULL,
-        created_at INTEGER NOT NULL
-    )');
-
-    $pdo->exec('CREATE TABLE IF NOT EXISTS audit_log (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        username TEXT,
-        user_ip TEXT,
-        action TEXT NOT NULL,
-        details TEXT,
-        ip TEXT,
-        created_at INTEGER NOT NULL
-    )');
-
-    $pdo->exec('CREATE TABLE IF NOT EXISTS otp_used (
-        user_id INTEGER NOT NULL,
-        otp_counter INTEGER NOT NULL,
-        created_at INTEGER NOT NULL,
-        PRIMARY KEY (user_id, otp_counter),
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-    )');
-
+    static $pdo = null;
+    if ($pdo === null) {
+        $pdo = db_connect();
+        if (schema_version($pdo) < latest_schema_version()) {
+            migrate($pdo);
+        }
+    }
+    return $pdo;
 }
 
 /** Setup is only possible while no admin exists (replaces the old setup-completed.txt flag file). */
 function admin_exists(): bool
 {
-    return (int)db()->query('SELECT COUNT(*) FROM users WHERE isadmin = 1')->fetchColumn() > 0;
+    return (int)db()->query("SELECT COUNT(*) FROM users WHERE role = 'admin'")->fetchColumn() > 0;
 }
 
 function is_db_empty(PDO $pdo): bool
@@ -406,8 +364,18 @@ function require_login(): void
 
 function require_admin(): void
 {
+    require_permission('admin');
+}
+
+/** Redirect to the dashboard unless the current user has $permission (see src/roles.php). */
+function require_permission(string $permission): void
+{
     $user = current_user();
-    if (!$user || (int)$user['isadmin'] !== 1) {
+    if (!$user) {
+        header('Location: ' . url_for('login.php'));
+        exit;
+    }
+    if (!can($user, $permission)) {
         header('Location: ' . url_for('index.php'));
         exit;
     }
@@ -447,6 +415,71 @@ function get_all_networks(): array
 function user_can_access_network(array $user, array $network): bool
 {
     return (int)$user['accesslevel'] >= (int)$network['accesslevel'];
+}
+
+/** Networks within the user's access level, i.e. those the user may request or pick as own defaults. */
+function eligible_networks_for_user(array $user): array
+{
+    return array_values(array_filter(get_all_networks(), fn($n) => user_can_access_network($user, $n)));
+}
+
+/**
+ * Self-service (superuser/admin): replace the user's own default networks.
+ * Networks above the user's access level or unknown ids are rejected, never stored.
+ * @return array{saved: list<int>, rejected: list<int>}
+ */
+function set_own_default_networks(array $user, array $networkIds): array
+{
+    if (!can($user, 'edit_own_default_networks')) {
+        throw new RuntimeException('Not allowed to edit own default networks');
+    }
+    $eligible = array_map(fn($n) => (int)$n['id'], eligible_networks_for_user($user));
+    $requested = array_values(array_unique(array_map('intval', $networkIds)));
+    $saved = array_values(array_intersect($requested, $eligible));
+    $rejected = array_values(array_diff($requested, $eligible));
+    set_user_default_networks((int)$user['id'], $saved);
+    return ['saved' => $saved, 'rejected' => $rejected];
+}
+
+/** Admin acting as another user. The original admin is kept in the session. */
+function start_impersonation(array $admin, array $target): void
+{
+    if (!can($admin, 'impersonate')) {
+        throw new RuntimeException('Not allowed to impersonate');
+    }
+    if ((int)$admin['id'] === (int)$target['id']) {
+        throw new InvalidArgumentException('Cannot impersonate yourself');
+    }
+    ensure_session();
+    session_regenerate_id(true);
+    $_SESSION['impersonator_id'] = (int)$admin['id'];
+    $_SESSION['user_id'] = (int)$target['id'];
+    log_event('impersonate_start', 'Acting as ' . ($target['username'] ?? '?') . ' (' . ($target['user_ip'] ?? '') . ')', (int)$admin['id'], $admin['username'] ?? null, $admin['user_ip'] ?? null);
+}
+
+/** The admin behind the current impersonation, or null. */
+function impersonator(): ?array
+{
+    ensure_session();
+    $id = $_SESSION['impersonator_id'] ?? null;
+    return $id ? fetch_user_by_id((int)$id) : null;
+}
+
+/** End impersonation and return to the admin account. Returns the admin, or null if none was active. */
+function stop_impersonation(): ?array
+{
+    $admin = impersonator();
+    $target = current_user();
+    unset($_SESSION['impersonator_id']);
+    if (!$admin || !is_admin($admin)) {
+        // The admin was deleted or demoted meanwhile – end the session entirely.
+        logout_user();
+        return null;
+    }
+    session_regenerate_id(true);
+    $_SESSION['user_id'] = (int)$admin['id'];
+    log_event('impersonate_end', 'Stopped acting as ' . ($target['username'] ?? '?') . ' (' . ($target['user_ip'] ?? '') . ')', (int)$admin['id'], $admin['username'] ?? null, $admin['user_ip'] ?? null);
+    return $admin;
 }
 
 function address_list_name(string $userIp): string
@@ -690,15 +723,18 @@ function delete_network(int $id): void
     $stmt->execute([':id' => $id]);
 }
 
-function save_user(?int $id, string $username, string $userIp, string $otp_secret, int $isadmin, int $accesslevel): void
+function save_user(?int $id, string $username, string $userIp, string $otp_secret, string $role, int $accesslevel): void
 {
+    if (!is_valid_role($role)) {
+        throw new InvalidArgumentException('Invalid role: ' . $role);
+    }
     $level = max(0, min($accesslevel, (int)MAX_ACCESS_LEVEL));
     if ($id === null) {
-        $stmt = db()->prepare('INSERT INTO users (username, user_ip, otp_secret, isadmin, accesslevel) VALUES (:n, :u, :o, :i, :a)');
-        $stmt->execute([':n' => $username, ':u' => $userIp, ':o' => $otp_secret, ':i' => $isadmin, ':a' => $level]);
+        $stmt = db()->prepare('INSERT INTO users (username, user_ip, otp_secret, role, accesslevel) VALUES (:n, :u, :o, :r, :a)');
+        $stmt->execute([':n' => $username, ':u' => $userIp, ':o' => $otp_secret, ':r' => $role, ':a' => $level]);
     } else {
-        $stmt = db()->prepare('UPDATE users SET username = :n, user_ip = :u, otp_secret = :o, isadmin = :i, accesslevel = :a WHERE id = :id');
-        $stmt->execute([':n' => $username, ':u' => $userIp, ':o' => $otp_secret, ':i' => $isadmin, ':a' => $level, ':id' => $id]);
+        $stmt = db()->prepare('UPDATE users SET username = :n, user_ip = :u, otp_secret = :o, role = :r, accesslevel = :a WHERE id = :id');
+        $stmt->execute([':n' => $username, ':u' => $userIp, ':o' => $otp_secret, ':r' => $role, ':a' => $level, ':id' => $id]);
     }
 }
 

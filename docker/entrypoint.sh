@@ -26,7 +26,7 @@ if [ "${APP_ENV:-production}" = "dev" ]; then
 fi
 
 if [ "${1:-}" = "httpd" ]; then
-    as_app php /app/bin/init-db.php
+    as_app php /app/bin/migrate.php
     if [ "${SEED_DEMO:-0}" = "1" ]; then
         as_app php /app/bin/seed-demo.php --if-empty
     fi

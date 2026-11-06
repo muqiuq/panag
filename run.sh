@@ -56,7 +56,7 @@ compose() {
 }
 
 dev_compose() { compose "$DEV_PROJECT" compose.yml compose.dev.yml compose.live.yml -- "$@"; }
-e2e_compose() { PANAG_PORT="$E2E_PORT" PANAG_BIND=127.0.0.1 MOCK_PORT="${PANAG_E2E_MOCK_PORT:-18081}" compose "$E2E_PROJECT" compose.yml compose.dev.yml -- "$@"; }
+e2e_compose() { PANAG_PORT="$E2E_PORT" PANAG_BIND=127.0.0.1 MOCK_PORT="${PANAG_E2E_MOCK_PORT:-18081}" PANAG_SUBNET="${PANAG_E2E_SUBNET:-172.30.98.0/24}" compose "$E2E_PROJECT" compose.yml compose.dev.yml -- "$@"; }
 
 build_flags() {
     # Podman defaults to OCI format, which drops HEALTHCHECK; RouterOS also expects docker archives.

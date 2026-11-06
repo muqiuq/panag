@@ -4,6 +4,8 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/client_ip.php';
 require_once __DIR__ . '/router/RouterClient.php';
 require_once __DIR__ . '/router/RestRouterClient.php';
+require_once __DIR__ . '/migrations.php';
+require_once __DIR__ . '/roles.php';
 require_once __DIR__ . '/functions.php';
 
 function view_path(string $name): string

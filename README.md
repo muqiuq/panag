@@ -9,7 +9,8 @@ PANAG is a lightweight PHP/SQLite web app that hands out temporary or default ac
  - OTP login (TOTP) only
  - User management with QR codes for authenticator apps
  - Grant On-demand access to networks 
- - User and network management with access levels and admin role
+ - User and network management with access levels and roles: user, superuser (chooses own default networks), admin
+ - Admins can act as another user (impersonation) and return
  - Local assets (Bootstrap/kjua) for offline-friendly deployments
  - Small container image (~40 MB, Alpine + Apache + PHP 8.4) for `amd64`, `arm64` and `arm/v7`
  - Deployable on a [RouterOS](https://mikrotik.com/software) device using the [Container](https://help.mikrotik.com/docs/spaces/ROS/pages/84901929/Container) feature – see [docs/deploy-mikrotik.md](docs/deploy-mikrotik.md)

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/../../src/bootstrap.php';
-require_admin();
+require_permission('view_config');
 
 $constants = [];
 foreach (panag_config_sources() as $name => $source) {

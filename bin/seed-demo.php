@@ -17,15 +17,16 @@ if (!is_db_empty($pdo)) {
     cli_fail('Database is not empty; refusing to insert demo data. Use ./run.sh reset for a fresh database.');
 }
 
-// [username, user_ip, isadmin, accesslevel]
+// [username, user_ip, role, accesslevel]
 $users = [
-    ['Local Tester', '127.0.0.1', 1, 12],   // default dev identity (DEV_DEFAULT_IP) and E2E admin
-    ['Admin User', '10.0.0.1', 1, 10],
-    ['Regular User', '10.0.0.2', 0, 5],
-    ['Login Tester', '10.0.0.9', 0, 1],     // used only by the login E2E test (OTP codes are single-use)
+    ['Local Tester', '127.0.0.1', 'admin', 12],   // default dev identity (DEV_DEFAULT_IP) and E2E admin
+    ['Admin User', '10.0.0.1', 'admin', 10],
+    ['Regular User', '10.0.0.2', 'user', 5],
+    ['Super User', '10.0.0.3', 'superuser', 8],
+    ['Login Tester', '10.0.0.9', 'user', 1],      // used only by the login E2E test (OTP codes are single-use)
 ];
-foreach ($users as [$name, $ip, $isAdmin, $level]) {
-    save_user(null, $name, $ip, DEMO_OTP_SECRET, $isAdmin, $level);
+foreach ($users as [$name, $ip, $role, $level]) {
+    save_user(null, $name, $ip, DEMO_OTP_SECRET, $role, $level);
 }
 
 // [name, accesslevel, address]
@@ -46,6 +47,7 @@ $defaults = [
     '127.0.0.1' => ['Office LAN'],
     '10.0.0.1' => ['Office LAN', 'VPN', 'Datacenter'],
     '10.0.0.2' => ['Office LAN', 'Printers'],
+    '10.0.0.3' => ['Office LAN'],
 ];
 foreach ($defaults as $ip => $names) {
     $user = fetch_user_by_user_ip($ip);

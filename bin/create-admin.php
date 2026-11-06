@@ -18,7 +18,7 @@ if (!preg_match('/^[A-Z2-7]{16,}$/', $secret)) {
 }
 
 $existing = fetch_user_by_user_ip($ip);
-save_user($existing ? (int)$existing['id'] : null, $name, $ip, $secret, 1, $level);
+save_user($existing ? (int)$existing['id'] : null, $name, $ip, $secret, 'admin', $level);
 log_event('cli_admin_created', ($existing ? 'Promoted' : 'Created') . ' admin ' . $name, null, $name, $ip);
 
 $label = rawurlencode(OTP_ISSUER . ':' . $ip);

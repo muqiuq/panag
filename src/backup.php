@@ -62,19 +62,26 @@ function import_networks_json(string $json, bool $replace = true): int
 
 function export_users_json(): string
 {
-    $rows = db()->query('SELECT username, user_ip, otp_secret, isadmin, accesslevel FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
+    $rows = db()->query('SELECT username, user_ip, otp_secret, role, accesslevel, default_duration_sec, extended_duration_sec, theme FROM users ORDER BY user_ip')->fetchAll(PDO::FETCH_ASSOC);
     $payload = array_map(function ($u) {
         return [
-            'username' => $u['username'] ?? '',
-            'user_ip' => $u['user_ip'] ?? '',
-            'otp_secret' => $u['otp_secret'] ?? '',
-            'isadmin' => isset($u['isadmin']) ? (int)$u['isadmin'] : 0,
-            'accesslevel' => isset($u['accesslevel']) ? (int)$u['accesslevel'] : 0,
+            'username' => (string)$u['username'],
+            'user_ip' => (string)$u['user_ip'],
+            'otp_secret' => (string)$u['otp_secret'],
+            'role' => (string)$u['role'],
+            'accesslevel' => (int)$u['accesslevel'],
+            'default_duration_sec' => (int)$u['default_duration_sec'],
+            'extended_duration_sec' => (int)$u['extended_duration_sec'],
+            'theme' => (string)$u['theme'],
         ];
     }, $rows);
     return json_encode($payload, JSON_PRETTY_PRINT);
 }
 
+/**
+ * Import users from JSON. Accepts the current format and V0.1 exports ("isadmin": 0/1 instead of "role").
+ * Existing user_ips are skipped, never overwritten.
+ */
 function import_users_json(string $json): array
 {
     $data = json_decode($json, true);
@@ -89,7 +96,6 @@ function import_users_json(string $json): array
         $username = trim((string)($row['username'] ?? ''));
         $userIp = trim((string)($row['user_ip'] ?? ''));
         $otp = trim((string)($row['otp_secret'] ?? ''));
-        $isadmin = isset($row['isadmin']) ? (int)$row['isadmin'] : 0;
         $level = isset($row['accesslevel']) ? (int)$row['accesslevel'] : 0;
         if ($username === '' || $userIp === '' || $otp === '') {
             throw new InvalidArgumentException('Missing username, user_ip, or otp_secret at index ' . $idx);
@@ -97,12 +103,28 @@ function import_users_json(string $json): array
         if ($level < 0 || $level > (int)MAX_ACCESS_LEVEL) {
             throw new InvalidArgumentException('Invalid access level at index ' . $idx);
         }
+        if (isset($row['role'])) {
+            $role = (string)$row['role'];
+            if (!is_valid_role($role)) {
+                throw new InvalidArgumentException('Invalid role at index ' . $idx);
+            }
+        } else {
+            $role = !empty($row['isadmin']) ? 'admin' : 'user';
+        }
+        $defaultDuration = (int)($row['default_duration_sec'] ?? 3600);
+        $extendedDuration = (int)($row['extended_duration_sec'] ?? 900);
+        if ($defaultDuration <= 0 || $extendedDuration <= 0) {
+            throw new InvalidArgumentException('Invalid duration at index ' . $idx);
+        }
         $clean[] = [
             'username' => $username,
             'user_ip' => $userIp,
             'otp_secret' => $otp,
-            'isadmin' => $isadmin ? 1 : 0,
+            'role' => $role,
             'accesslevel' => $level,
+            'default_duration_sec' => $defaultDuration,
+            'extended_duration_sec' => $extendedDuration,
+            'theme' => preg_match('/^[a-z0-9-]{1,32}$/', (string)($row['theme'] ?? '')) ? (string)$row['theme'] : 'default',
         ];
     }
 
@@ -116,7 +138,8 @@ function import_users_json(string $json): array
 
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare('INSERT INTO users (username, user_ip, otp_secret, isadmin, accesslevel) VALUES (:n, :u, :o, :i, :a)');
+        $stmt = $pdo->prepare('INSERT INTO users (username, user_ip, otp_secret, role, accesslevel, default_duration_sec, extended_duration_sec, theme)
+            VALUES (:n, :u, :o, :r, :a, :dd, :ed, :t)');
         foreach ($clean as $row) {
             if (isset($seenPayload[$row['user_ip']])) {
                 $skippedDuplicate++;
@@ -131,8 +154,11 @@ function import_users_json(string $json): array
                 ':n' => $row['username'],
                 ':u' => $row['user_ip'],
                 ':o' => $row['otp_secret'],
-                ':i' => $row['isadmin'],
+                ':r' => $row['role'],
                 ':a' => $row['accesslevel'],
+                ':dd' => $row['default_duration_sec'],
+                ':ed' => $row['extended_duration_sec'],
+                ':t' => $row['theme'],
             ]);
             $imported++;
         }

@@ -15,7 +15,7 @@ services:
       LOGIN_IP_WHITELIST: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32
       # Only the compose network is trusted to send X-Forwarded-For (Playwright sets it per test).
       # Must not overlap with the demo user IPs (10.0.0.x).
-      TRUSTED_PROXIES: 172.30.99.0/24
+      TRUSTED_PROXIES: ${PANAG_SUBNET:-172.30.99.0/24}
       PHP_DISPLAY_ERRORS: "On"
 
   mock-routeros:
@@ -67,7 +67,7 @@ networks:
   default:
     ipam:
       config:
-        - subnet: 172.30.99.0/24
+        - subnet: ${PANAG_SUBNET:-172.30.99.0/24}  # dev stack; run.sh uses a different one for E2E
 
 volumes:
   node-modules:

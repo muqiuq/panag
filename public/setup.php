@@ -40,9 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } else {
     $existing = fetch_user_by_user_ip($remoteIp);
     if ($existing) {
-      save_user((int)$existing['id'], $username, $remoteIp, $otp, 1, max((int)$existing['accesslevel'], $access));
+      save_user((int)$existing['id'], $username, $remoteIp, $otp, 'admin', max((int)$existing['accesslevel'], $access));
     } else {
-      save_user(null, $username, $remoteIp, $otp, 1, $access);
+      save_user(null, $username, $remoteIp, $otp, 'admin', $access);
     }
     log_event('setup_admin_created', 'Initial admin created via setup', null, $username, $remoteIp);
     header('Location: ' . url_for('login.php'));
