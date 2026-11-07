@@ -9,7 +9,7 @@
         "phpmailer/phpmailer": "^7.1"
     },
     "require-dev": {
-        "phpunit/phpunit": "^11.5",
+        "phpunit/phpunit": "^13.4",
         "phpstan/phpstan": "^2.1"
     },
     "config": {
