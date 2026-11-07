@@ -59,7 +59,7 @@ final class MigrationTest extends TestCase
 
         $applied = migrate($pdo);
 
-        $this->assertSame(['001_baseline', '002_roles_prefs', '003_cleanup'], $applied);
+        $this->assertSame(['001_baseline', '002_roles_prefs', '003_cleanup', '004_monitoring'], $applied);
         $this->assertSame(latest_schema_version(), schema_version($pdo));
 
         $users = $pdo->query('SELECT * FROM users ORDER BY id')->fetchAll(PDO::FETCH_ASSOC);
@@ -68,6 +68,12 @@ final class MigrationTest extends TestCase
         $this->assertSame(3600, (int)$users[1]['default_duration_sec']);
         $this->assertSame(900, (int)$users[1]['extended_duration_sec']);
         $this->assertSame('default', $users[1]['theme']);
+        $this->assertNull($users[1]['email']);                    // 004: no address until set
+        $this->assertSame(1, (int)$users[1]['notify_alerts']);
+        $this->assertContains('meta', $this->columns($pdo, 'audit_log'));
+        foreach (['wg_peers', 'wg_endpoints', 'user_locations', 'alerts', 'alert_deliveries', 'mail_log'] as $table) {
+            $this->assertNotEmpty($this->columns($pdo, $table), $table);
+        }
         $this->assertSame('JBSWY3DPEHPK3PXP', $users[0]['otp_secret']);
         $this->assertNotContains('isadmin', $this->columns($pdo, 'users'));
 

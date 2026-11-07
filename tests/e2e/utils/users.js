@@ -23,4 +23,13 @@ const SEEDED_DEFAULTS = {
 
 const MOCK_URL = process.env.MOCK_URL || 'http://127.0.0.1:18081';
 
-module.exports = { OTP_SECRET, USERS, USER_IDS, NETWORKS, SEEDED_DEFAULTS, MOCK_URL };
+/**
+ * Random user IP for users created by tests: 10.230–239.x.x, far from the demo data (10.0.0.x, networks
+ * 10.10.x / 10.99.x / 10.255.x), so searches like "10.10" in other specs never match them.
+ */
+function testIp() {
+  const r = (n) => Math.floor(Math.random() * n);
+  return `10.${230 + r(10)}.${1 + r(250)}.${1 + r(250)}`;
+}
+
+module.exports = { OTP_SECRET, USERS, USER_IDS, NETWORKS, SEEDED_DEFAULTS, MOCK_URL, testIp };

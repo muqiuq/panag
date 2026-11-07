@@ -5,6 +5,8 @@ final class FakeRouterClient implements RouterClient
 {
     /** @var array<int, array<string, string>> */
     public array $entries = [];
+    /** @var list<array<string, string>> WireGuard peers as RouterOS returns them */
+    public array $peers = [];
     public bool $failing = false;
     private int $nextId = 1;
 
@@ -66,6 +68,9 @@ final class FakeRouterClient implements RouterClient
 
     public function wireguardPeers(): array
     {
-        return router_result(true, [], null, 200);
+        if ($this->failing) {
+            return router_result(false, [], 'HTTP 500', 500);
+        }
+        return router_result(true, $this->peers, null, 200);
     }
 }

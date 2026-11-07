@@ -8,9 +8,14 @@
 //   GET                /rest/system/identity | /rest/system/clock | /rest/system/resource
 //   GET                /rest/interface/wireguard/peers
 // Test control (no auth):
-//   POST /_mock/reset              clear state (address list, faults)
+//   POST /_mock/reset              clear state (address list, faults, peers, AI)
 //   GET  /_mock/state              raw state incl. absolute expiry times
 //   POST /_mock/fault              {"mode":"none|500|401|timeout","latency_ms":0}
+//   POST /_mock/wireguard          {"public-key": "...", "current-endpoint-address": "...", "last-handshake": "5s", "rx": "1"}
+//                                  updates (or with "add": true creates) a peer
+//   POST /_mock/ai                 {"mode": "ok|error|invalid", "result": {...}} behaviour of the fake AI
+// Fake OpenRouter (AI triage, OPENROUTER_BASE_URL=http://mock-routeros:8080/_ai/v1):
+//   POST /_ai/v1/chat/completions  records the request (see /_mock/state "ai.requests") and answers
 //
 // Behaviour mirrors RouterOS where it matters: Basic auth, ".id" values like "*1A", all values are strings,
 // timeouts count down and expired dynamic entries disappear, duplicates are rejected with HTTP 400.
@@ -85,10 +90,11 @@ function default_state(): array
         'entries' => [],
         'fault' => ['mode' => 'none', 'latency_ms' => 0],
         'peers' => [
-            ['.id' => '*1', 'interface' => 'wg0', 'name' => 'peer1', 'comment' => 'Demo laptop', 'public-key' => 'mOcKpUbLiCkEy1mOcKpUbLiCkEy1mOcKpUbLiCkEy1=', 'allowed-address' => '10.0.0.2/32', 'endpoint-address' => '198.51.100.10', 'endpoint-port' => '51820', 'last-handshake' => '1m12s', 'rx' => '5242880', 'tx' => '1048576', 'disabled' => 'false'],
+            ['.id' => '*1', 'interface' => 'wg0', 'name' => 'peer1', 'comment' => 'Demo laptop', 'public-key' => 'mOcKpUbLiCkEy1mOcKpUbLiCkEy1mOcKpUbLiCkEy1=', 'allowed-address' => '10.0.0.2/32', 'endpoint-address' => '', 'endpoint-port' => '0', 'current-endpoint-address' => '198.51.100.10', 'current-endpoint-port' => '51820', 'last-handshake' => '1m12s', 'rx' => '5242880', 'tx' => '1048576', 'disabled' => 'false'],
             ['.id' => '*2', 'interface' => 'wg0', 'name' => 'peer2', 'comment' => 'Demo phone', 'public-key' => 'mOcKpUbLiCkEy2mOcKpUbLiCkEy2mOcKpUbLiCkEy2=', 'allowed-address' => '10.0.0.3/32', 'endpoint-address' => '', 'endpoint-port' => '0', 'rx' => '0', 'tx' => '0', 'disabled' => 'false'],
             ['.id' => '*3', 'interface' => 'wg-other', 'name' => 'peer3', 'comment' => 'Other interface', 'public-key' => 'mOcKpUbLiCkEy3mOcKpUbLiCkEy3mOcKpUbLiCkEy3=', 'allowed-address' => '10.1.0.2/32', 'rx' => '0', 'tx' => '0', 'disabled' => 'false'],
         ],
+        'ai' => ['mode' => 'ok', 'result' => null, 'requests' => []],
     ];
 }
 
@@ -186,9 +192,70 @@ if (strpos($path, '/_mock/') === 0) {
             });
             respond(200, ['ok' => true, 'fault' => $fault]);
             // no break
+        case 'POST /_mock/wireguard':
+            $body = request_body();
+            $peer = with_state($stateFile, function (array &$state) use ($body) {
+                foreach ($state['peers'] as $i => $p) {
+                    if (($body['public-key'] ?? null) === $p['public-key'] || ($body['.id'] ?? null) === $p['.id']) {
+                        foreach ($body as $k => $v) {
+                            if ($k !== 'add') {
+                                $state['peers'][$i][$k] = (string)$v;
+                            }
+                        }
+                        return $state['peers'][$i];
+                    }
+                }
+                if (!empty($body['add'])) {
+                    unset($body['add']);
+                    $peer = array_map('strval', $body) + ['.id' => '*' . strtoupper(dechex(count($state['peers']) + 1)), 'interface' => 'wg0', 'disabled' => 'false', 'rx' => '0', 'tx' => '0'];
+                    $state['peers'][] = $peer;
+                    return $peer;
+                }
+                return null;
+            });
+            respond($peer ? 200 : 404, $peer ?? ['error' => 'peer not found']);
+            // no break
+        case 'POST /_mock/ai':
+            $body = request_body();
+            with_state($stateFile, function (array &$state) use ($body) {
+                $state['ai']['mode'] = (string)($body['mode'] ?? 'ok');
+                $state['ai']['result'] = $body['result'] ?? null;
+            });
+            respond(200, ['ok' => true]);
+            // no break
         default:
             respond(404, ['error' => 'unknown mock control endpoint']);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Fake OpenRouter chat completions (AI triage tests)
+// ---------------------------------------------------------------------------
+if ($method === 'POST' && $path === '/_ai/v1/chat/completions') {
+    $body = request_body();
+    if (strpos((string)($_SERVER['HTTP_AUTHORIZATION'] ?? ''), 'Bearer ') !== 0) {
+        respond(401, ['error' => ['message' => 'No auth credentials found', 'code' => 401]]);
+    }
+    $ai = with_state($stateFile, function (array &$state) use ($body) {
+        $state['ai']['requests'][] = $body;
+        $state['ai']['requests'] = array_slice($state['ai']['requests'], -10);
+        return $state['ai'];
+    });
+    if ($ai['mode'] === 'error') {
+        respond(502, ['error' => ['message' => 'Provider returned error', 'code' => 502]]);
+    }
+    $result = $ai['result'] ?? [
+        'severity' => 'high', 'likely_benign' => false, 'confidence' => 'medium',
+        'signals' => ['country outside allowlist', 'no travel history'],
+        'summary_admin' => 'Mock assessment: a connection from an unusual country without travel history.',
+        'summary_user' => 'Your VPN connection came from an unusual place. If you are not travelling, tell us.',
+        'recommended_action' => 'ask_user',
+    ];
+    respond(200, [
+        'id' => 'gen-mock', 'model' => (string)($body['model'] ?? 'mock'), 'provider' => 'MockProvider',
+        'choices' => [['index' => 0, 'finish_reason' => 'stop', 'message' => ['role' => 'assistant', 'content' => $ai['mode'] === 'invalid' ? 'not json' : json_encode($result)]]],
+        'usage' => ['prompt_tokens' => 321, 'completion_tokens' => 54, 'total_tokens' => 375],
+    ]);
 }
 
 // ---------------------------------------------------------------------------

@@ -27,6 +27,7 @@ fi
 
 if [ "${1:-}" = "httpd" ]; then
     as_app php /app/bin/migrate.php
+    as_app php /app/bin/config-check.php
     if [ "${SEED_DEMO:-0}" = "1" ]; then
         as_app php /app/bin/seed-demo.php --if-empty
     fi

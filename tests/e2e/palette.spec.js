@@ -108,6 +108,7 @@ test('overlay: a failed action keeps the dialog open and shows the error inside 
   await page.keyboard.press('/');
   const dialog = page.getByTestId('palette-dialog');
   await page.keyboard.type('vpn 13h');
+  await expect(dialog.getByRole('option', { name: /VPN/ })).toBeVisible(); // overlay data loaded
   await page.keyboard.press('Enter');
   await page.keyboard.press('Enter');
   await expect(dialog.getByRole('alert')).toContainText('at most 12 h');

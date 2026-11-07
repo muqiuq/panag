@@ -28,9 +28,16 @@ if (is_admin($user)) {
     $lastLogins = $adminOverview['lastLogins'];
     $loggedInToday = $adminOverview['loggedInToday'];
 }
+$awaiting = MONITOR_ENABLED ? alerts_awaiting_user((int)$user['id']) : [];
 $pageScripts = ['js/dashboard.js', 'js/users-overview.js'];
 include view_path('header');
 ?>
+<?php foreach ($awaiting as $notice): ?>
+  <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2" role="alert" data-testid="security-notice">
+    <span><strong>Was this you?</strong> PANAG noticed unusual activity on your account (<?= e(date('Y-m-d H:i', (int)$notice['created_at'])) ?>).</span>
+    <a class="btn btn-sm btn-warning ms-auto" href="<?= e(url_for('alert.php')) ?>?id=<?= (int)$notice['id'] ?>">Review</a>
+  </div>
+<?php endforeach; ?>
 <div class="card shadow-sm mb-4 palette-card">
   <div class="card-body">
     <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-2">

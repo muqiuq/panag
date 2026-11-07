@@ -41,4 +41,47 @@ final class ConfigTest extends TestCase
         $this->assertStringStartsWith(DATA_DIR, RESET_LOGIN_FILE);
         $this->assertSame('env', panag_config_sources()['DATA_DIR']);
     }
+
+    public function testEverySettingIsDocumented(): void
+    {
+        $example = (string)file_get_contents(__DIR__ . '/../../.env.example');
+        preg_match_all('/^#?\s*([A-Z][A-Z0-9_]+)(?:_FILE)?=/m', $example, $m);
+        $documented = array_unique($m[1]);
+        foreach (panag_config_items() as $name => $meta) {
+            $this->assertContains($name, $documented, $name . ' is missing in .env.example');
+            $this->assertNotSame('', $meta['description'], $name . ' needs a description');
+            $this->assertNotSame('Other', $meta['group'], $name . ' needs a group');
+        }
+    }
+
+    public function testSecretsAreNeverShown(): void
+    {
+        foreach (['MIKROTIK_PASSWORD', 'SETUP_TOKEN', 'MONITOR_TOKEN', 'SMTP_PASSWORD', 'OPENROUTER_API_KEY', 'MONITOR_PSEUDONYM_KEY'] as $name) {
+            $this->assertTrue(panag_config_items()[$name]['secret'], $name . ' must be flagged as secret');
+            $this->assertTrue(panag_config_is_secret($name));
+        }
+        $this->assertTrue(panag_config_is_secret('SOME_FUTURE_API_KEY'), 'name pattern as safety net');
+        $this->assertFalse(panag_config_is_secret('SMTP_HOST'));
+    }
+
+    public function testFileOriginAndUnreadableFile(): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'panag');
+        file_put_contents($file, "s3cret\n");
+        putenv('PANAG_TEST_VALUE_FILE=' . $file);
+        $this->assertSame(['value' => 's3cret', 'source' => 'file', 'file' => $file], panag_env_info('PANAG_TEST_VALUE'));
+        unlink($file);
+        $this->assertSame('default', panag_env_info('PANAG_TEST_VALUE')['source']);
+        $this->assertContains('PANAG_TEST_VALUE_FILE points to a file that cannot be read: ' . $file, array_column(panag_config_warnings(), 'message'));
+    }
+
+    public function testFeatureChecks(): void
+    {
+        // tests/bootstrap.php configures mail and AI completely
+        $this->assertNull(mail_config_problem());
+        $this->assertNull(ai_config_problem());
+        $this->assertNull(monitor_config_problem());
+        $this->assertSame(1800, MONITOR_BUNDLE_WINDOW, 'durations are parsed to seconds');
+        $this->assertSame(['CH', 'DE'], MONITOR_ALLOWED_COUNTRIES);
+    }
 }

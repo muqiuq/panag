@@ -21,7 +21,8 @@ $flash = $_SESSION['user_flash'] ?? null;
 unset($_SESSION['user_flash']);
 
 $tab = 'account';
-$account = ['username' => $target['username'], 'user_ip' => $target['user_ip'], 'role' => $target['role'], 'accesslevel' => (string)(int)$target['accesslevel']];
+$account = ['username' => $target['username'], 'user_ip' => $target['user_ip'], 'role' => $target['role'], 'accesslevel' => (string)(int)$target['accesslevel'],
+    'email' => (string)($target['email'] ?? ''), 'notify_alerts' => (int)($target['notify_alerts'] ?? 1) === 1];
 $accountErrors = [];
 $durationErrors = [];
 $durationInput = [
@@ -47,8 +48,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'user_ip' => trim((string)($_POST['user_ip'] ?? '')),
                 'role' => (string)($_POST['role'] ?? ''),
                 'accesslevel' => (string)(int)($_POST['accesslevel'] ?? 0),
+                'email' => trim((string)($_POST['email'] ?? '')),
+                'notify_alerts' => !empty($_POST['notify_alerts']),
             ];
             $accountErrors = validate_user_account($uid, $account['username'], $account['user_ip']);
+            if ($account['email'] !== '' && !filter_var($account['email'], FILTER_VALIDATE_EMAIL)) {
+                $accountErrors[] = 'Not a valid e-mail address.';
+            }
             if (!is_valid_role($account['role'])) {
                 $accountErrors[] = 'Invalid role.';
             } elseif (would_remove_last_admin($target, $account['role'])) {
@@ -58,9 +64,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
             }
             update_user_account($uid, $account['username'], $account['user_ip'], $account['role'], (int)$account['accesslevel']);
+            update_user_contact($uid, $account['email'], $account['notify_alerts']);
             $updated = fetch_user_by_id($uid);
             $changes = [];
-            foreach (['username' => 'name', 'user_ip' => 'IP', 'role' => 'role', 'accesslevel' => 'level'] as $field => $label) {
+            foreach (['username' => 'name', 'user_ip' => 'IP', 'role' => 'role', 'accesslevel' => 'level', 'email' => 'e-mail'] as $field => $label) {
                 if ((string)$target[$field] !== (string)$updated[$field]) {
                     $changes[] = $label . ' ' . $target[$field] . ' -> ' . $updated[$field];
                 }
@@ -69,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 log_event('user_updated', implode(', ', $changes) . ' by ' . $admin['username'], $uid, $updated['username'], $updated['user_ip']);
             }
             if ($target['role'] !== $updated['role']) {
-                log_event('user_role_changed', $target['role'] . ' -> ' . $updated['role'], $uid, $updated['username'], $updated['user_ip']);
+                log_event('user_role_changed', $target['role'] . ' -> ' . $updated['role'], $uid, $updated['username'], $updated['user_ip'], ['from' => $target['role'], 'to' => $updated['role']]);
             }
             $invalid = ineligible_default_networks($updated);
             if ($invalid) {
@@ -191,6 +198,16 @@ include view_path('header');
       <div class="col-md-2">
         <label class="form-label" for="acc-level">Access level</label>
         <input id="acc-level" type="number" name="accesslevel" class="form-control" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>" value="<?= e($account['accesslevel']) ?>" required>
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="acc-email">E-mail (security notifications)</label>
+        <input id="acc-email" type="email" name="email" class="form-control" value="<?= e($account['email']) ?>">
+      </div>
+      <div class="col-md-6 d-flex align-items-end">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" name="notify_alerts" value="1" id="acc-notify" <?= $account['notify_alerts'] ? 'checked' : '' ?>>
+          <label class="form-check-label" for="acc-notify">Send alert mails<?= $target['role'] === 'admin' ? ' (admins get all alerts)' : ' (“Was this you?”)' ?></label>
+        </div>
       </div>
       <div class="col-12">
         <button class="btn btn-primary" type="submit">Save account</button>

@@ -5,6 +5,7 @@ parameters:
         - public
         - bin
         - dev/mock-routeros
+        - dev/geoip
         - tests
     excludePaths:
         - vendor
@@ -44,3 +45,45 @@ parameters:
         - OTP_ISSUER
         - GREETING_MESSAGES
         - LOGIN_HERO_IMAGES
+        - APP_BASE_URL
+        - MONITOR_ENABLED
+        - MONITOR_TOKEN
+        - MONITOR_ALLOWED_SOURCES
+        - MONITOR_INTERVAL
+        - MONITOR_ALLOWED_COUNTRIES
+        - MONITOR_LEARNING_DAYS
+        - MONITOR_TRAVEL_WINDOW
+        - MONITOR_FAILED_LOGINS
+        - MONITOR_FAILED_LOGINS_WINDOW
+        - MONITOR_BUNDLE_WINDOW
+        - MONITOR_COOLDOWN
+        - MONITOR_DIGEST_TIME
+        - MONITOR_NOTIFY_USERS
+        - MONITOR_HOSTING_ASNS
+        - MONITOR_IP_RETENTION_DAYS
+        - MONITOR_ALERT_RETENTION_DAYS
+        - MONITOR_PSEUDONYM_KEY
+        - GEOIP_COUNTRY_DB
+        - GEOIP_ASN_DB
+        - GEOIP_AUTO_UPDATE
+        - MAIL_TRANSPORT
+        - SMTP_HOST
+        - SMTP_PORT
+        - SMTP_SECURITY
+        - SMTP_USERNAME
+        - SMTP_PASSWORD
+        - SMTP_TIMEOUT
+        - MAIL_FROM
+        - MAIL_FROM_NAME
+        - ALERT_ADMIN_EMAILS
+        - MONITOR_AI
+        - OPENROUTER_API_KEY
+        - OPENROUTER_BASE_URL
+        - OPENROUTER_MODEL
+        - OPENROUTER_PROVIDERS
+        - OPENROUTER_MAX_PRICE_PROMPT
+        - OPENROUTER_MAX_PRICE_COMPLETION
+        - OPENROUTER_REASONING_EFFORT
+        - MONITOR_AI_MAX_CALLS_PER_DAY
+        - MONITOR_AI_TIMEOUT
+        - APP_ROOT

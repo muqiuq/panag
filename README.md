@@ -15,6 +15,8 @@ PANAG is a lightweight PHP/SQLite web app that hands out temporary or default ac
  - Default networks per user: editor with search and bulk actions, users × networks matrix, reverse view per network – always limited to the user's access level
  - All tables sortable (IP-aware); OTP secrets only shown after an explicit, logged "Reveal"
  - Strict Content-Security-Policy (no inline scripts or styles)
+ - Security monitoring: unusual logins, grants and WireGuard locations (GeoIP: country and network operator) are bundled into alerts and mailed to admins – and the affected user ("Was this you?"); optional AI triage via OpenRouter with pseudonymised facts only ([plan](docs/plan-security-monitoring.md), [setup](docs/deploy-mikrotik.md#8-security-monitoring-optional))
+ - All configuration via environment variables; admins see every effective value (secrets only as "set") on the config page
  - Admins can act as another user (impersonation) and return
  - Local assets (Bootstrap/kjua) for offline-friendly deployments
  - Small container image (~40 MB, Alpine + Apache + PHP 8.4) for `amd64`, `arm64` and `arm/v7`
@@ -41,7 +43,10 @@ Everything runs in containers (Podman, or Docker) – no PHP, Node or npm needed
 In development the app runs with `APP_ENV=dev`: a banner lets you choose which client IP PANAG
 should assume (users are identified by IP), so you can log in as any demo user.
 The mock router (`dev/mock-routeros/`) implements the RouterOS REST endpoints PANAG uses, lets
-timeouts expire like RouterOS and supports fault injection (`/_mock/fault`).
+timeouts expire like RouterOS and supports fault injection (`/_mock/fault`). It also fakes WireGuard
+peers (`/_mock/wireguard`, e.g. to move a peer to another country) and the OpenRouter API for the AI
+triage. Mails of the dev stack land in Mailpit (http://127.0.0.1:8025); `./run.sh monitor` runs one
+security monitor cycle. GeoIP test databases for documentation IP ranges are built from `dev/geoip/`.
 
 Layout: `public/` is the only web root, application code is in `src/`, CLI tools in `bin/`,
 the SQLite database lives in `$DATA_DIR` (`/data` in the container).

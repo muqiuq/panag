@@ -56,7 +56,7 @@ compose() {
 }
 
 dev_compose() { compose "$DEV_PROJECT" compose.yml compose.dev.yml compose.live.yml -- "$@"; }
-e2e_compose() { PANAG_PORT="$E2E_PORT" PANAG_BIND=127.0.0.1 MOCK_PORT="${PANAG_E2E_MOCK_PORT:-18081}" PANAG_SUBNET="${PANAG_E2E_SUBNET:-172.30.98.0/24}" compose "$E2E_PROJECT" compose.yml compose.dev.yml -- "$@"; }
+e2e_compose() { PANAG_PORT="$E2E_PORT" PANAG_BIND=127.0.0.1 MOCK_PORT="${PANAG_E2E_MOCK_PORT:-18081}" MAILPIT_PORT="${PANAG_E2E_MAILPIT_PORT:-18025}" PANAG_BASE_URL="http://localhost:$E2E_PORT" PANAG_SUBNET="${PANAG_E2E_SUBNET:-172.30.98.0/24}" compose "$E2E_PROJECT" compose.yml compose.dev.yml -- "$@"; }
 
 build_flags() {
     # Podman defaults to OCI format, which drops HEALTHCHECK; RouterOS also expects docker archives.
@@ -102,6 +102,14 @@ ensure_vendor() {
     fi
 }
 
+ensure_geoip_fixtures() {
+    # Test GeoIP databases (documentation IP ranges) for the dev/E2E stack, see dev/geoip/.
+    if [ ! -f dev/geoip/country.mmdb ] || [ dev/geoip/build-fixtures.php -nt dev/geoip/country.mmdb ] || [ dev/geoip/MmdbWriter.php -nt dev/geoip/country.mmdb ]; then
+        info "Building GeoIP test databases"
+        tools_run php dev/geoip/build-fixtures.php
+    fi
+}
+
 wait_for_http() {
     local url="$1" tries="${2:-60}"
     for _ in $(seq 1 "$tries"); do
@@ -137,12 +145,14 @@ arch_platform() {
 cmd_up() {
     build_image
     check_clock
-    info "Starting app + mock RouterOS"
-    PANAG_BIND=127.0.0.1 dev_compose up -d --force-recreate app mock-routeros
+    ensure_geoip_fixtures
+    info "Starting app + mock RouterOS + Mailpit"
+    PANAG_BIND=127.0.0.1 dev_compose up -d --force-recreate app mock-routeros mailpit
     if wait_for_http "http://127.0.0.1:$DEV_PORT/healthz.php" 60; then
         info "PANAG is running: http://localhost:$DEV_PORT"
         info "You act as 127.0.0.1 (admin 'Local Tester'). OTP code: ./run.sh otp"
         info "Mock RouterOS: http://127.0.0.1:${MOCK_PORT:-8081}/_mock/state"
+        info "Mails (Mailpit): http://127.0.0.1:${MAILPIT_PORT:-8025} · monitor cycle: ./run.sh monitor"
     else
         dev_compose logs --tail 50 app
         die "App did not become healthy"
@@ -166,6 +176,11 @@ cmd_otp() {
     else
         "$ENGINE" run --rm --entrypoint php "$IMAGE" /app/bin/otp.php "$secret"
     fi
+}
+
+cmd_monitor() {
+    # One security monitor cycle in the running dev stack (normally triggered by the RouterOS scheduler).
+    dev_compose exec -T app php bin/monitor.php "$@"
 }
 
 cmd_shell() {
@@ -195,13 +210,14 @@ cmd_unit() {
 
 cmd_e2e() {
     build_image
+    ensure_geoip_fixtures
     info "Starting fresh E2E stack ($E2E_PROJECT)"
     e2e_compose down -v --remove-orphans >/dev/null 2>&1 || true
-    e2e_compose up -d app mock-routeros
+    e2e_compose up -d app mock-routeros mailpit
     local rc=0
     e2e_compose run --rm playwright "npm ci --no-audit --no-fund --loglevel=error && npx playwright test $*" || rc=$?
     if [ "$rc" -ne 0 ]; then
-        e2e_compose logs --tail 80 app mock-routeros || true
+        e2e_compose logs --tail 80 app mock-routeros mailpit || true
     fi
     if [ "${PANAG_KEEP_E2E:-0}" != 1 ]; then
         e2e_compose down -v >/dev/null 2>&1 || true
@@ -273,10 +289,11 @@ cmd_help() {
     cat <<'EOF'
 PANAG dev tool – everything runs in containers.
 
-  ./run.sh up              Build image, start app + mock RouterOS → http://localhost:8080
+  ./run.sh up              Build image, start app + mock RouterOS + Mailpit → http://localhost:8080
   ./run.sh down            Stop the dev stack
   ./run.sh reset           Delete dev data, start fresh with demo data
-  ./run.sh logs [svc]      Follow logs (app | mock-routeros)
+  ./run.sh logs [svc]      Follow logs (app | mock-routeros | mailpit)
+  ./run.sh monitor         Run one security monitor cycle (normally the RouterOS scheduler does this)
   ./run.sh otp [secret]    Current TOTP code (demo users share one secret)
   ./run.sh shell [svc]     Shell in a container (app | mock-routeros | tools)
 
@@ -291,7 +308,7 @@ PANAG dev tool – everything runs in containers.
   ./run.sh build [arch]    Build the runtime image (arch: amd64 | arm64 | armv7)
   ./run.sh export <arch>   Build and save dist/panag-<version>-<arch>.tar for RouterOS
 
-Environment: CONTAINER_ENGINE=docker|podman, PANAG_PORT (8080), MOCK_PORT (8081),
+Environment: CONTAINER_ENGINE=docker|podman, PANAG_PORT (8080), MOCK_PORT (8081), MAILPIT_PORT (8025),
              PANAG_KEEP_E2E=1 keeps the E2E stack running, PANAG_REBUILD_TOOLS=1.
 EOF
 }
@@ -304,7 +321,7 @@ main() {
     esac
     detect_engine
     case "$cmd" in
-        up|down|reset|logs|otp|shell|lint|unit|e2e|test|report|npm|composer|build|export) "cmd_$cmd" "$@" ;;
+        up|down|reset|logs|otp|monitor|shell|lint|unit|e2e|test|report|npm|composer|build|export) "cmd_$cmd" "$@" ;;
         *) cmd_help; die "Unknown command: $cmd" ;;
     esac
 }

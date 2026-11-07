@@ -283,10 +283,11 @@ function prune_audit_log(): void
     $stmt->execute();
 }
 
-function log_event(string $action, string $details = '', ?int $userId = null, ?string $username = null, ?string $userIp = null): void
+/** @param array<string, mixed>|null $meta structured data for monitoring rules (e.g. ['networks' => [ids]]) */
+function log_event(string $action, string $details = '', ?int $userId = null, ?string $username = null, ?string $userIp = null, ?array $meta = null): void
 {
     $ip = PHP_SAPI === 'cli' ? 'cli' : client_ip();
-    $stmt = db()->prepare('INSERT INTO audit_log (user_id, username, user_ip, action, details, ip, created_at) VALUES (:uid, :un, :uip, :a, :d, :ip, :ts)');
+    $stmt = db()->prepare('INSERT INTO audit_log (user_id, username, user_ip, action, details, ip, created_at, meta) VALUES (:uid, :un, :uip, :a, :d, :ip, :ts, :m)');
     $stmt->execute([
         ':uid' => $userId,
         ':un' => $username,
@@ -295,6 +296,7 @@ function log_event(string $action, string $details = '', ?int $userId = null, ?s
         ':d' => $details,
         ':ip' => $ip,
         ':ts' => time(),
+        ':m' => $meta === null ? null : json_encode($meta),
     ]);
     prune_audit_log();
 }
@@ -493,6 +495,18 @@ function update_user_account(int $id, string $username, string $userIp, string $
     }
     $stmt = db()->prepare('UPDATE users SET username = :n, user_ip = :u, role = :r, accesslevel = :a WHERE id = :id');
     $stmt->execute([':n' => $username, ':u' => $userIp, ':r' => $role, ':a' => max(0, min($accesslevel, (int)MAX_ACCESS_LEVEL)), ':id' => $id]);
+}
+
+/** E-mail address for alert mails (empty = none) and whether alerts are mailed. @return string|null error */
+function update_user_contact(int $id, string $email, bool $notify): ?string
+{
+    $email = trim($email);
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return 'Not a valid e-mail address.';
+    }
+    db()->prepare('UPDATE users SET email = :e, notify_alerts = :n WHERE id = :id')
+        ->execute([':e' => $email !== '' ? strtolower($email) : null, ':n' => $notify ? 1 : 0, ':id' => $id]);
+    return null;
 }
 
 function set_user_otp_secret(int $id, string $secret): void

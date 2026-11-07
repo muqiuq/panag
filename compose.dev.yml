@@ -4,6 +4,9 @@ services:
   app:
     depends_on:
       - mock-routeros
+      - mailpit
+    volumes:
+      - ./dev/geoip:/geoip:ro   # test databases from dev/geoip/build-fixtures.php (run.sh builds them)
     environment:
       APP_ENV: dev
       SEED_DEMO: "1"
@@ -17,6 +20,26 @@ services:
       # Must not overlap with the demo user IPs (10.0.0.x).
       TRUSTED_PROXIES: ${PANAG_SUBNET:-172.30.99.0/24}
       PHP_DISPLAY_ERRORS: "On"
+      # Security monitoring against the mock router, Mailpit and the fake AI (dev/mock-routeros/router.php).
+      # The *_secret values are dummies – E2E checks that admin/config.php never shows them.
+      MONITOR_ENABLED: "true"
+      MONITOR_TOKEN: e2e-monitor-token
+      MONITOR_ALLOWED_SOURCES: ${PANAG_SUBNET:-172.30.99.0/24},127.0.0.1/32
+      MONITOR_ALLOWED_COUNTRIES: CH,DE
+      APP_BASE_URL: ${PANAG_BASE_URL:-http://localhost:8080}
+      GEOIP_COUNTRY_DB: /geoip/country.mmdb
+      GEOIP_ASN_DB: /geoip/asn.mmdb
+      GEOIP_AUTO_UPDATE: "false"
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_SECURITY: none
+      SMTP_PASSWORD: e2e-secret-smtp-password
+      MAIL_FROM: panag@example.test
+      ALERT_ADMIN_EMAILS: security@example.test
+      MONITOR_AI: openrouter
+      OPENROUTER_BASE_URL: http://mock-routeros:8080/_ai/v1
+      OPENROUTER_API_KEY: e2e-secret-openrouter-key
+      OPENROUTER_PROVIDERS: MockProvider
 
   mock-routeros:
     image: ${PANAG_IMAGE:-localhost/panag:dev}
@@ -33,6 +56,12 @@ services:
     ports:
       - "127.0.0.1:${MOCK_PORT:-8081}:8080"
 
+  # Catches all mails of the dev/E2E stack: web UI and API on :8025
+  mailpit:
+    image: docker.io/axllent/mailpit:v1.21.8
+    ports:
+      - "127.0.0.1:${MAILPIT_PORT:-8025}:8025"
+
   # ./run.sh e2e
   playwright:
     # Keep in sync with @playwright/test in package.json
@@ -41,11 +70,13 @@ services:
     depends_on:
       - app
       - mock-routeros
+      - mailpit
     working_dir: /work
     environment:
       CI: ${CI:-}
       BASE_URL: http://app:8080
       MOCK_URL: http://mock-routeros:8080
+      MAILPIT_URL: http://mailpit:8025
     volumes:
       - .:/work
       - node-modules:/work/node_modules

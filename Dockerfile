@@ -11,6 +11,7 @@ RUN apk add --no-cache \
         su-exec \
         ${PHP} \
         ${PHP}-apache2 \
+        ${PHP}-bcmath \
         ${PHP}-ctype \
         ${PHP}-curl \
         ${PHP}-opcache \
@@ -33,12 +34,19 @@ RUN apk add --no-cache \
 COPY --from=docker.io/library/composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /work
 
+# --- Runtime PHP libraries (MMDB reader, PHPMailer): pure PHP, so resolved once on the build platform ---
+FROM --platform=$BUILDPLATFORM docker.io/library/composer:2 AS vendor
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --no-interaction --no-progress --no-scripts --classmap-authoritative --ignore-platform-reqs
+
 # --- Runtime image ---
 FROM base AS runtime
 COPY docker/httpd.conf /etc/apache2/httpd.conf
 COPY docker/php.ini /etc/php/conf.d/zz-panag.ini
 COPY docker/entrypoint.sh /usr/local/bin/panag-entrypoint
 COPY VERSION /app/VERSION
+COPY --from=vendor /app/vendor /app/vendor
 COPY src /app/src
 COPY bin /app/bin
 COPY public /app/public

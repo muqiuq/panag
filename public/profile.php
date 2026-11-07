@@ -17,11 +17,27 @@ $durationInput = [
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf_token($_POST['csrf_token'] ?? null);
-    if (($_POST['action'] ?? '') === 'save_durations') {
+    $action = $_POST['action'] ?? '';
+    if ($action === 'save_contact') {
+        $error = update_user_contact((int)$user['id'], (string)($_POST['email'] ?? ''), !empty($_POST['notify_alerts']));
+        $_SESSION['profile_flash'] = $error === null ? ['type' => 'success', 'message' => 'Notification settings saved.', 'section' => 'contact'] : ['type' => 'danger', 'message' => $error, 'section' => 'contact'];
+        if ($error === null) {
+            log_event('contact_updated', 'E-mail for alerts ' . (trim((string)($_POST['email'] ?? '')) !== '' ? 'set' : 'removed'), (int)$user['id'], $user['username'], $user['user_ip']);
+        }
+        header('Location: ' . url_for('profile.php') . '#contact');
+        exit;
+    } elseif ($action === 'forget_place') {
+        $kind = ($_POST['kind'] ?? '') === 'asn' ? 'asn' : 'country';
+        place_forget((int)$user['id'], $kind, (string)($_POST['value'] ?? ''));
+        log_event('known_place_removed', place_label($kind, (string)($_POST['value'] ?? '')), (int)$user['id'], $user['username'], $user['user_ip']);
+        $_SESSION['profile_flash'] = ['type' => 'success', 'message' => 'Removed from your known places.', 'section' => 'places'];
+        header('Location: ' . url_for('profile.php') . '#places');
+        exit;
+    } elseif ($action === 'save_durations') {
         $durationInput = ['default' => trim((string)($_POST['default_duration'] ?? '')), 'extended' => trim((string)($_POST['extended_duration'] ?? ''))];
         $durationErrors = update_user_durations($user, parse_duration_input($durationInput['default']), parse_duration_input($durationInput['extended']));
         if (!$durationErrors) {
-            $_SESSION['profile_flash'] = ['type' => 'success', 'message' => 'Durations saved.'];
+            $_SESSION['profile_flash'] = ['type' => 'success', 'message' => 'Durations saved.', 'section' => 'durations'];
             header('Location: ' . url_for('profile.php') . '#durations');
             exit;
         }
@@ -34,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $canEditDefaults = can($user, 'edit_own_default_networks');
+$places = user_places((int)$user['id']);
 $defaultNetworks = get_default_networks_for_user((int)$user['id']);
 $pageScripts = ['js/durations.js', 'js/default-networks.js'];
 
@@ -56,7 +73,7 @@ include view_path('header');
     <div class="card shadow-sm mt-4" id="durations">
       <div class="card-header">Access durations</div>
       <div class="card-body">
-        <?php if ($flash): ?>
+        <?php if ($flash && ($flash['section'] ?? 'durations') === 'durations'): ?>
           <div class="alert alert-<?= e($flash['type']) ?>" role="alert"><?= e($flash['message']) ?></div>
         <?php endif; ?>
         <?php
@@ -98,6 +115,67 @@ include view_path('header');
         <?php endif; ?>
       </div>
     </div>
+
+    <div class="row g-4 mt-0">
+      <div class="col-md-6">
+        <div class="card shadow-sm h-100" id="contact">
+          <div class="card-header">Security notifications</div>
+          <div class="card-body">
+            <?php if ($flash && ($flash['section'] ?? '') === 'contact'): ?>
+              <div class="alert alert-<?= e($flash['type']) ?>" role="alert"><?= e($flash['message']) ?></div>
+            <?php endif; ?>
+            <form method="post">
+              <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="save_contact">
+              <div class="mb-2">
+                <label class="form-label" for="contact-email">E-mail address</label>
+                <input id="contact-email" type="email" name="email" class="form-control" value="<?= e((string)($user['email'] ?? '')) ?>" autocomplete="email">
+              </div>
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" name="notify_alerts" value="1" id="contact-notify" <?= (int)($user['notify_alerts'] ?? 1) === 1 ? 'checked' : '' ?>>
+                <label class="form-check-label" for="contact-notify">Mail me when PANAG notices unusual activity on my account</label>
+              </div>
+              <button class="btn btn-primary btn-sm" type="submit">Save</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card shadow-sm h-100" id="places">
+          <div class="card-header">Known places</div>
+          <div class="card-body">
+            <?php if ($flash && ($flash['section'] ?? '') === 'places'): ?>
+              <div class="alert alert-<?= e($flash['type']) ?>" role="alert"><?= e($flash['message']) ?></div>
+            <?php endif; ?>
+            <?php if (!$places): ?>
+              <p class="text-muted small">None yet. Countries you connect from are learned automatically within the allowed countries; others are added when you answer “That was me”.</p>
+            <?php else: ?>
+              <ul class="list-group mb-2">
+                <?php foreach ($places as $place): ?>
+                  <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                    <span><strong><?= e(place_label($place['kind'], $place['value'])) ?></strong> <span class="text-muted small"><?= e($place['source']) ?>, last <?= e(date('Y-m-d', (int)$place['last_seen'])) ?></span></span>
+                    <form method="post" data-confirm="Remove <?= e(place_label($place['kind'], $place['value'])) ?> from your known places?">
+                      <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                      <input type="hidden" name="action" value="forget_place">
+                      <input type="hidden" name="kind" value="<?= e($place['kind']) ?>">
+                      <input type="hidden" name="value" value="<?= e($place['value']) ?>">
+                      <button class="btn btn-sm btn-outline-secondary" aria-label="Remove <?= e(place_label($place['kind'], $place['value'])) ?>">Remove</button>
+                    </form>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            <?php endif; ?>
+          </div>
+        </div>
+      </div>
+    </div>
+    <?php if (MONITOR_ENABLED): ?>
+      <p class="small text-muted mt-3 mb-0" data-testid="monitoring-notice">
+        <strong>Security monitoring:</strong> to detect misuse, PANAG checks your logins and grants and the location (country and network operator)
+        of your WireGuard connections. Public IP addresses are kept for <?= (int)MONITOR_IP_RETENTION_DAYS ?> days, alerts for <?= (int)MONITOR_ALERT_RETENTION_DAYS ?> days.
+        Only admins see alerts.<?= MONITOR_AI !== 'off' ? ' Unusual cases may be assessed by an AI service; it only receives pseudonymised facts (no name, no IP address).' : '' ?>
+      </p>
+    <?php endif; ?>
   </div>
 </div>
 <?php include view_path('footer'); ?>

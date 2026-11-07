@@ -1,9 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { OTP_SECRET } = require('./utils/users');
-
-function randomIp() {
-  return `10.${10 + Math.floor(Math.random() * 200)}.${Math.floor(Math.random() * 200)}.10`;
-}
+const { OTP_SECRET, testIp: randomIp } = require('./utils/users');
 
 async function createUser(page, { name, ip, role = 'user', level = '3', secret = '' }) {
   await page.goto('/admin/users.php');

@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 const { USER_IDS, NETWORKS, SEEDED_DEFAULTS } = require('./utils/users');
 const { as, toasts, callApi, setDefaults } = require('./utils/ui');
 
-const ADMIN_PAGES = ['/admin/users.php', '/admin/user.php?id=3', '/admin/networks.php', '/admin/matrix.php', '/admin/logs.php', '/admin/status.php', '/admin/config.php'];
+const ADMIN_PAGES = ['/admin/users.php', '/admin/user.php?id=3', '/admin/networks.php', '/admin/matrix.php', '/admin/logs.php', '/admin/status.php', '/admin/config.php', '/admin/alerts.php', '/admin/monitoring.php'];
 
 test.describe('user', () => {
   test.use(as('regular'));

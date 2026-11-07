@@ -58,6 +58,8 @@ $navLink = static function (string $path, string $label) use ($currentScript): s
             <?= $navLink('admin/users.php', 'Users') ?>
             <?= $navLink('admin/networks.php', 'Networks') ?>
             <?= $navLink('admin/matrix.php', 'Matrix') ?>
+            <?php $openAlerts = MONITOR_ENABLED ? open_alert_count() : 0; ?>
+            <li class="nav-item"><a class="nav-link fw-semibold<?= $currentScript === 'alerts.php' ? ' active' : '' ?>" href="<?= e(url_for('admin/alerts.php')) ?>">Alerts<?php if ($openAlerts > 0): ?> <span class="badge text-bg-light" aria-label="<?= $openAlerts ?> open alerts" data-testid="open-alerts"><?= $openAlerts ?></span><?php endif; ?></a></li>
             <?= $navLink('admin/logs.php', 'Logs') ?>
             <?= $navLink('admin/config.php', 'Config') ?>
             <?= $navLink('admin/status.php', 'Status') ?>

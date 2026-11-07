@@ -6,6 +6,7 @@ playwright-report/
 test-results/
 .trace/
 /dist/
+/dev/geoip/*.mmdb
 
 # runtime data and local secrets
 data/

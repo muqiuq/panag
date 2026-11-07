@@ -20,6 +20,8 @@ function palette_commands(array $user): array
         ['manage_users', 'Users', 'admin/users.php', 'accounts people'],
         ['manage_users', 'Matrix', 'admin/matrix.php', 'default networks assignment'],
         ['manage_networks', 'Networks', 'admin/networks.php', 'subnets'],
+        ['admin', 'Alerts', 'admin/alerts.php', 'security monitoring incidents'],
+        ['admin', 'Monitoring', 'admin/monitoring.php', 'geoip wireguard mail ai security'],
         ['view_logs', 'Logs', 'admin/logs.php', 'audit'],
         ['view_status', 'Status', 'admin/status.php', 'router wireguard'],
         ['view_config', 'Config', 'admin/config.php', 'environment settings'],

@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { USER_IDS, NETWORKS, SEEDED_DEFAULTS } = require('./utils/users');
+const { USER_IDS, NETWORKS, SEEDED_DEFAULTS, testIp } = require('./utils/users');
 const { toasts, callApi, setDefaults } = require('./utils/ui');
 
 // Admin edits the default networks of "Regular User" (L5; seeded: Office LAN, Printers).
@@ -65,7 +65,7 @@ test('search, "only selected" and select all / none', async ({ page }) => {
 
 test('lowering the level marks defaults above it as invalid', async ({ page }) => {
   // Fresh user so the seeded users stay untouched.
-  const ip = `10.${20 + Math.floor(Math.random() * 200)}.1.20`;
+  const ip = testIp();
   await page.goto('/admin/users.php');
   const form = page.locator('#add-user');
   await form.getByLabel('Name').fill(`E2E Level ${Date.now()}`);

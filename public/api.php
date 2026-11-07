@@ -62,7 +62,7 @@ function handle_default_access(array $user): void
     $summary = grant_summary($results, 'Default access granted until ' . date('H:i', time() + $duration) . '.', 'Some networks could not be granted.');
     $message = $summary['message'] . ($skipped ? ' Skipped (above your level): ' . implode(', ', $skipped) . '.' : '');
     $log = 'Networks: ' . implode(', ', array_column($eligible, 'name')) . ' | ' . format_duration_human($duration) . ($skipped ? ' | skipped: ' . implode(', ', $skipped) : '');
-    log_event('default_access_granted', $log, (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+    log_event('default_access_granted', $log, (int)$user['id'], $user['username'] ?? null, $user['user_ip'], ['networks' => array_map('intval', array_column($eligible, 'id'))]);
     json_response($summary['ok'], $message, ['details' => $results] + access_payload($user));
 }
 
@@ -84,7 +84,7 @@ function handle_grant_network(array $user): void
     }
     $results = grant_networks($user, [$network], 'extended', $duration);
     $effective = $duration ?? user_grant_duration($user, 'extended');
-    log_event('extended_access_granted', 'Networks: ' . $network['name'] . ' | ' . format_duration_human($effective) . ' | ' . $results[0]['action'], (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+    log_event('extended_access_granted', 'Networks: ' . $network['name'] . ' | ' . format_duration_human($effective) . ' | ' . $results[0]['action'], (int)$user['id'], $user['username'] ?? null, $user['user_ip'], ['networks' => [(int)$network['id']]]);
     json_response($results[0]['success'], single_grant_message($results[0]), ['details' => $results] + access_payload($user));
 }
 

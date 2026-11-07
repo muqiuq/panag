@@ -39,7 +39,7 @@ test('CSP header is sent', async ({ request }) => {
 
 test('admin pages run without CSP errors', async ({ page }) => {
   const problems = await watch(page);
-  for (const path of ['/index.php', '/profile.php', '/status_public.php', '/admin/users.php', '/admin/matrix.php', '/admin/logs.php', '/admin/config.php', '/admin/status.php']) {
+  for (const path of ['/index.php', '/profile.php', '/status_public.php', '/admin/users.php', '/admin/matrix.php', '/admin/logs.php', '/admin/config.php', '/admin/status.php', '/admin/alerts.php', '/admin/monitoring.php']) {
     await page.goto(path);
     await usePalette(page);
   }

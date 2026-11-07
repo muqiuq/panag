@@ -33,4 +33,7 @@ async function remainingOnRouter(address) {
   return entry ? entry.expires_at - Math.floor(Date.now() / 1000) : null;
 }
 
-module.exports = { resetMock, mockState, setFault, addRouterEntry, remainingOnRouter };
+/** Change (or with add: true create) a WireGuard peer on the mock router. */
+const setPeer = (fields) => mockRequest('POST', '/_mock/wireguard', fields);
+
+module.exports = { resetMock, mockState, setFault, addRouterEntry, remainingOnRouter, setPeer };

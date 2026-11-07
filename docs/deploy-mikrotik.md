@@ -146,6 +146,73 @@ php bin/create-admin.php --ip=10.8.0.2 --name="Your Name"
   copy is written to `/data/backups/` first (the newest 5 are kept).
 * **Backup:** copy `usb1/panag-data/panag.sqlite`, or use *Users → Export* and *Networks → Export*.
 
+## 8. Security monitoring (optional)
+
+PANAG can watch logins, grants and the location of WireGuard connections (GeoIP, country and network
+operator) and mail admins – and the affected user – when something looks unusual. Background and rules:
+[plan-security-monitoring.md](plan-security-monitoring.md). Everything is configured with environment
+variables; admins see the effective values on **Config** (secrets only as "set") and the state on
+**Status → Security monitoring**.
+
+**Secrets as files** (on the data mount, readable by the container only):
+
+```routeros
+/file add name=usb1/panag-data/secrets/monitor_token contents="<long random token>"
+/file add name=usb1/panag-data/secrets/smtp_password contents="<smtp password>"
+```
+
+**Environment:**
+
+```routeros
+/container/envs add name=panag key=MONITOR_ENABLED value=true
+/container/envs add name=panag key=MONITOR_TOKEN_FILE value=/data/secrets/monitor_token
+/container/envs add name=panag key=MONITOR_ALLOWED_COUNTRIES value=CH
+/container/envs add name=panag key=APP_BASE_URL value=http://172.17.0.2:8080
+/container/envs add name=panag key=SMTP_HOST value=smtp.example.com
+/container/envs add name=panag key=SMTP_USERNAME value=panag@example.com
+/container/envs add name=panag key=SMTP_PASSWORD_FILE value=/data/secrets/smtp_password
+/container/envs add name=panag key=MAIL_FROM value=panag@example.com
+/container/envs add name=panag key=ALERT_ADMIN_EMAILS value=security@example.com
+```
+
+Admins also get alerts at the e-mail address in their profile. Optional AI triage (pseudonymised facts
+only, zero data retention enforced): `MONITOR_AI=openrouter`, `OPENROUTER_API_KEY_FILE`, and
+`OPENROUTER_PROVIDERS` – the providers allowed to receive the data (required).
+
+**Scheduler** – runs one monitor cycle every 5 minutes. `monitor.php` only accepts the router's
+container-bridge address (`MONITOR_ALLOWED_SOURCES`, default `172.17.0.1/32`) and the token:
+
+```routeros
+/system scheduler add name=panag-monitor interval=5m on-event=":do { /tool fetch \
+    url=\"http://172.17.0.2:8080/monitor.php\" http-method=post \
+    http-header-field=\"X-Monitor-Token: <token>\" output=none } on-error={}"
+```
+
+**Outgoing connections of the container** – allow only what is needed (SMTP relay; `download.db-ip.com`
+for the monthly GeoIP update, unless `GEOIP_AUTO_UPDATE=false`; `openrouter.ai` only with AI). Outgoing
+traffic to the internet may be masqueraded as usual – the no-NAT rule above is only about WireGuard
+clients reaching PANAG.
+
+```routeros
+/ip/firewall/address-list add list=panag-egress address=download.db-ip.com
+/ip/firewall/address-list add list=panag-egress address=smtp.example.com
+/ip/firewall/address-list add list=panag-egress address=openrouter.ai
+/ip/firewall/filter add chain=forward src-address=172.17.0.2 dst-address-list=panag-egress protocol=tcp dst-port=443,465,587 action=accept comment="PANAG egress"
+/ip/firewall/filter add chain=forward src-address=172.17.0.2 out-interface-list=WAN action=drop comment="PANAG: no other egress"
+```
+
+**GeoIP without internet:** download `dbip-country-lite-YYYY-MM.mmdb.gz` and `dbip-asn-lite-YYYY-MM.mmdb.gz`
+from [db-ip.com](https://db-ip.com/db/lite.php) (CC BY 4.0), unpack and upload them on the monitoring page,
+or copy them to `usb1/panag-data/geoip/country.mmdb` and `asn.mmdb`.
+
+**Check after setup:**
+
+* *Status → Security monitoring* shows the last cycle (≤ 5 min ago), the WireGuard peers with endpoint,
+  country and network, and both GeoIP databases. *Send test mail* must arrive.
+* The peers table shows the real public endpoint of your phone/laptop – this confirms that RouterOS
+  reports `current-endpoint-address` and `last-handshake` as PANAG expects (planned check of phase 0).
+* *Config* lists no configuration problems.
+
 ## Migrating from the pre-container layout (V0.1)
 
 * Settings moved from `config/config.php` to environment variables (step 4).

@@ -1,5 +1,7 @@
 *
 !VERSION
+!composer.json
+!composer.lock
 !src/
 !bin/
 !public/

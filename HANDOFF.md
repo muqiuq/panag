@@ -40,6 +40,9 @@ Gewünscht (vom User):
 | `status_public.php` | gewollt: jeder eingeloggte User sieht, wer heute eingeloggt war |
 | Commits | direkt auf `main`; GitHub Actions testet der User selbst und meldet Fehler |
 | Push, Branches, Tags | nur auf ausdrückliche Anweisung des Users (siehe `CLAUDE.md`) |
+| Security Monitoring | eigenes Projekt, [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md); KI über **OpenRouter mit GLM** (`z-ai/glm-5.3`), ZDR und `data_collection: deny` fest |
+| Konfiguration | **alles über Env-Variablen**, nichts in der DB; Admins sehen jede Einstellung (Secrets nur als „gesetzt“) |
+| Runtime-Abhängigkeiten | erlaubt für `maxmind-db/reader` und `phpmailer/phpmailer` (eigene Build-Stage) |
 
 ## 3. Was erledigt ist
 
@@ -50,7 +53,9 @@ Gewünscht (vom User):
 | `189b31c` | 2 – Freigabezeiten | Dauern pro User (15 min–14 h / 15 min–12 h, Server-Validierung 422); Verlängern ohne Kürzen; Extend/Revoke pro Eintrag; JS nach `public/js/` (nur `textContent`) |
 | „Phase 3: …“ | 3 – Bedienung | Kommandofeld (`/`, Ctrl/Cmd+K, IP-Suche, `vpn 2h`); Admin-Seiten `users`/`user` (Tabs)/`networks`/`matrix`; Default-Netze überall nur ≤ Level (auch Admins); OTP-Secret nur nach „Reveal“ (geloggt); alle Tabellen sortierbar, Log serverseitig; CSP aktiv |
 
-Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **104 PHPUnit**, **89 E2E**.
+| (nicht committet) | Security Monitoring | Regeln W1–W7/P1–P8/M1, Alarme mit Bündelung und Cooldown, Mails (SMTP, Digest, „Warst du das?“), GeoIP (DB-IP Lite, MMDB), KI-Triage via OpenRouter, `admin/alerts.php`, `admin/monitoring.php`, Config-Seite mit Herkunft und Secrets; Stand in [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md) Kapitel 18 |
+
+Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **137 PHPUnit**, **96 E2E**.
 GitHub Actions: Workflow geschrieben und mit `actionlint` geprüft, **aber noch nie auf GitHub gelaufen**.
 
 ### Unterwegs gefundene und behobene Bugs (wichtig für Produktion)
@@ -100,6 +105,9 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 | `public/js/app.js`, `public/js/table-sort.js` | gemeinsame Helfer (`api`, `el`, `toast`, Event `panag:access`) bzw. sortierbare Tabellen |
 | `src/views/partials/` | Default-Netz-Editor, Dauern-Formular, Users-Overview (je Seite wiederverwendet) |
 | `src/roles.php` | Rechte-Matrix `can()` |
+| `src/config.php`, `src/config_checks.php` | Registry aller Env-Variablen (Gruppe, Beschreibung, Typ, Secret) und Prüfungen; neue Variable = `$cfg(...)` + Eintrag in `.env.example` (Test prüft das) |
+| `src/monitor/` | Security Monitoring: `cycle.php` (Ablauf), `rules.php`, `alerts.php`, `notify.php`, `ai.php`, `geoip.php` |
+| `dev/geoip/` | MMDB-Writer und GeoIP-Testdatenbanken (Dokumentations-IP-Bereiche → CH, DE, US …) |
 | `src/migrations/` | Schema-Migrationen; `bin/migrate.php` läuft beim Container-Start |
 | `dev/mock-routeros/router.php` | Mock der RouterOS-REST-API (`/_mock/reset`, `/_mock/state`, `/_mock/fault`) |
 | `tests/unit`, `tests/integration`, `tests/e2e` | PHPUnit bzw. Playwright |
@@ -132,6 +140,16 @@ git clone git@github.com:muqiuq/panag.git && cd panag
   (deshalb laufen die nur lesenden Tests in `impersonation.spec.js` zuerst). Specs, die Default-Netze der Demo-User
   ändern, stellen sie mit `setDefaults()` (`tests/e2e/utils/ui.js`) wieder her. `getByLabel` trifft auch
   `aria-label` von Buttons (z. B. die Suche in der Navbar), dann eindeutiger lokalisieren.
+- **Zufalls-IPs in E2E-Tests** nur über `testIp()` (`tests/e2e/utils/users.js`, Bereich 10.230–239.x.x). Sonst
+  findet z. B. die Palette-Suche „10.10“ die von anderen Specs angelegten User, und Tests scheitern nur im Gesamtlauf.
+- **Monitoring im Dev/E2E-Stack:** `compose.dev.yml` schaltet es mit Mailpit (http://127.0.0.1:8025, E2E: 18025),
+  den GeoIP-Fixtures (`/geoip`, von `run.sh` gebaut) und der Fake-KI im Mock-Router ein. Ein Zyklus läuft nur auf
+  Anstoss (`./run.sh monitor` oder POST `/monitor.php` mit `X-Monitor-Token: e2e-monitor-token`). Die
+  `e2e-secret-*`-Werte sind Dummies; ein Test prüft, dass sie nie auf der Config-Seite erscheinen.
+- **Monitoring-Tests:** jeder E2E-Test legt eigenen User und Peer an (Dedupe-Schlüssel sind pro User, Cooldown 24 h).
+  Unit-Tests ersetzen Router, Mailer, GeoIP und KI über `set_router()`, `set_mailer()`, `set_geoip()`,
+  `set_ai_transport()`; Zeit wird als `$now` durchgereicht.
+- **PHP auf arm/v7 ist 32-bit** (`PHP_INT_SIZE` 4): Deshalb ist `php84-bcmath` im Image (MMDB-Werte > 2³¹).
 
 ## 7. Offen / nächste Schritte
 
@@ -144,3 +162,6 @@ git clone git@github.com:muqiuq/panag.git && cd panag
    Noch hart codiert: Navbar `bg-danger`, Badges/Buttons mit Bootstrap-Farbklassen. Der Befehl „Theme: …“
    gehört in `palette_commands()` (`src/palette.php`). Theme-CSS muss ohne Inline-Styles auskommen (CSP).
 5. **Phase 5 – Aufräumen/Doku**, optional RouterOS-CHR-Test in der CI und Trivy.
+6. **Security Monitoring** ist umgesetzt, aber noch **nicht committet** (Wunsch des Users). Offen sind die
+   Geräteprüfung am hEX S (Peer-Felder, Egress, Scheduler) und ein echter OpenRouter-Testaufruf mit der
+   gewählten Provider-Liste, siehe docs/plan-security-monitoring.md, Kapitel 18.
