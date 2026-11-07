@@ -1,100 +1,109 @@
 <?php
+// JSON API used by the dashboard. All state-changing calls require POST + X-CSRF-Token.
 require_once __DIR__ . '/../src/bootstrap.php';
 ensure_session();
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
-function json_response(bool $status, string $message, array $extra = []): void
+function json_response(bool $status, string $message, array $extra = [], ?int $httpCode = null): void
 {
+    if ($httpCode !== null) {
+        http_response_code($httpCode);
+    }
     echo json_encode(array_merge(['status' => $status, 'message' => $message], $extra));
     exit;
 }
 
-authenticate();
-$csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? null;
-
-function authenticate(): void
+function json_input(): array
 {
-    if (!current_user()) {
-        http_response_code(401);
-        echo json_encode(['status' => false, 'message' => 'Not authenticated']);
-        exit;
+    $data = json_decode((string)file_get_contents('php://input'), true);
+    return is_array($data) ? $data : [];
+}
+
+$user = current_user();
+if (!$user) {
+    json_response(false, 'Not authenticated', [], 401);
+}
+
+function require_post_with_csrf(): void
+{
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        json_response(false, 'Method not allowed.', [], 405);
     }
+    require_csrf_token($_SERVER['HTTP_X_CSRF_TOKEN'] ?? null);
 }
 
-function status_suffix(array $results): string
+function access_payload(array $user): array
 {
-    $failedStatuses = array_values(array_unique(array_filter(array_map(function ($item) {
-        return $item['success'] ? null : ($item['status'] ?? null);
-    }, $results))));
-    return $failedStatuses ? (' API codes: ' . implode(', ', $failedStatuses)) : '';
+    return ['entries' => current_access_view($user)];
 }
 
-function handle_defaultaccess(array $user): void
+function handle_default_access(array $user): void
 {
-    $nets = get_default_networks_for_user($user['id']);
+    $nets = get_default_networks_for_user((int)$user['id']);
     if (empty($nets)) {
         json_response(false, 'No default networks configured.');
     }
-    $eligible = [];
-    $skipped = [];
-    foreach ($nets as $net) {
-        if (user_can_access_network($user, $net)) {
-            $eligible[] = $net;
-        } else {
-            $skipped[] = $net['name'] ?? 'network';
-        }
-    }
+    $eligible = array_values(array_filter($nets, fn($n) => user_can_access_network($user, $n)));
+    $skipped = array_column(array_filter($nets, fn($n) => !user_can_access_network($user, $n)), 'name');
     if (empty($eligible)) {
         json_response(false, 'No default networks eligible for your access level.');
     }
-    $results = apply_networks_to_user($user, $eligible, DEFAULT_TIMEOUT);
-    $allOk = array_reduce($results, fn($carry, $item) => $carry && $item['success'], true);
-    $message = $allOk ? 'Default access granted.' : ('Some networks could not be granted.' . status_suffix($results));
-    if (!empty($skipped)) {
-        $message .= ' Skipped: ' . implode(', ', $skipped) . '.';
-    }
-    $names = implode(', ', array_column($eligible, 'name'));
-    $logMsg = 'Networks: ' . $names;
-    if (!empty($skipped)) {
-        $logMsg .= ' | skipped: ' . implode(', ', $skipped);
-    }
-    log_event('default_access_granted', $logMsg, (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
-    json_response($allOk, $message, ['details' => $results]);
+    $duration = user_grant_duration($user, 'default');
+    $results = grant_networks($user, $eligible, 'default');
+    $summary = grant_summary($results, 'Default access granted until ' . date('H:i', time() + $duration) . '.', 'Some networks could not be granted.');
+    $message = $summary['message'] . ($skipped ? ' Skipped: ' . implode(', ', $skipped) . '.' : '');
+    $log = 'Networks: ' . implode(', ', array_column($eligible, 'name')) . ' | ' . format_duration_human($duration) . ($skipped ? ' | skipped: ' . implode(', ', $skipped) : '');
+    log_event('default_access_granted', $log, (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+    json_response($summary['ok'], $message, ['details' => $results] + access_payload($user));
 }
 
 function handle_apply_extended(array $user): void
 {
-    $input = json_decode(file_get_contents('php://input'), true) ?: [];
-    $ids = $input['network_ids'] ?? [];
+    $ids = json_input()['network_ids'] ?? [];
     if (!is_array($ids) || empty($ids)) {
         json_response(false, 'No networks selected.');
     }
-    $allNetworks = get_all_networks();
-    $map = [];
-    foreach ($allNetworks as $n) {
-        $map[$n['id']] = $n;
-    }
+    $map = array_column(get_all_networks(), null, 'id');
     $selected = [];
     foreach ($ids as $id) {
-        if (isset($map[$id]) && user_can_access_network($user, $map[$id])) {
-            $selected[] = $map[$id];
+        if (isset($map[(int)$id]) && user_can_access_network($user, $map[(int)$id])) {
+            $selected[] = $map[(int)$id];
         }
     }
     if (empty($selected)) {
         json_response(false, 'No eligible networks.');
     }
-    $results = apply_networks_to_user($user, $selected, EXTENDED_TIMEOUT);
-    $ok = array_reduce($results, fn($carry, $item) => $carry && $item['success'], true);
-    $message = $ok ? 'Extended access applied.' : ('Some networks failed.' . status_suffix($results));
-    $names = implode(', ', array_column($selected, 'name'));
-    log_event('extended_access_granted', 'Networks: ' . $names, (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
-    json_response($ok, $message, ['details' => $results]);
+    grant_extended_and_respond($user, $selected, 'Extended access applied');
 }
 
-function handle_current_access(array $user): void
+function handle_grant_network(array $user): void
 {
-    $entries = get_current_address_list_entries($user['user_ip']);
-    json_response(true, 'Current accesses fetched.', ['entries' => $entries]);
+    $id = (int)(json_input()['network_id'] ?? 0);
+    $network = array_column(get_all_networks(), null, 'id')[$id] ?? null;
+    if (!$network || !user_can_access_network($user, $network)) {
+        json_response(false, 'Network not available.', [], 404);
+    }
+    grant_extended_and_respond($user, [$network], $network['name'] . ' granted');
+}
+
+function grant_extended_and_respond(array $user, array $networks, string $okPrefix): void
+{
+    $duration = user_grant_duration($user, 'extended');
+    $results = grant_networks($user, $networks, 'extended');
+    $summary = grant_summary($results, $okPrefix . ' until ' . date('H:i', time() + $duration) . '.', 'Some networks failed.');
+    log_event('extended_access_granted', 'Networks: ' . implode(', ', array_column($networks, 'name')) . ' | ' . format_duration_human($duration), (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
+    json_response($summary['ok'], $summary['message'], ['details' => $results] + access_payload($user));
+}
+
+function handle_entry_action(array $user, string $action): void
+{
+    $id = (string)(json_input()['id'] ?? '');
+    if ($id === '') {
+        json_response(false, 'Missing entry id.', [], 400);
+    }
+    $result = $action === 'revoke' ? revoke_own_entry($user, $id) : extend_own_entry($user, $id);
+    json_response($result['success'], $result['message'], access_payload($user));
 }
 
 function handle_revoke_self(array $user): void
@@ -102,21 +111,16 @@ function handle_revoke_self(array $user): void
     $result = remove_address_list_entries($user['user_ip']);
     $msg = $result['success'] ? 'Your access was revoked.' : ('Failed to revoke: ' . ($result['message'] ?? ''));
     log_event('self_revoke', 'Removed ' . ($result['deleted'] ?? 0) . ' of ' . ($result['total'] ?? 0) . ' entries for own IP', (int)$user['id'], $user['username'] ?? null, $user['user_ip']);
-    json_response($result['success'], $msg, ['deleted' => $result['deleted'] ?? 0, 'total' => $result['total'] ?? 0]);
+    json_response($result['success'], $msg, ['deleted' => $result['deleted'] ?? 0, 'total' => $result['total'] ?? 0] + access_payload($user));
 }
 
 function handle_revoke_access(array $user): void
 {
     if (!can($user, 'revoke_others')) {
-        http_response_code(403);
-        json_response(false, 'Forbidden');
+        json_response(false, 'Forbidden', [], 403);
     }
-    $input = json_decode(file_get_contents('php://input'), true) ?: [];
-    $targetId = isset($input['user_id']) ? (int)$input['user_id'] : 0;
-    if ($targetId <= 0) {
-        json_response(false, 'Invalid user.');
-    }
-    $target = fetch_user_by_id($targetId);
+    $targetId = (int)(json_input()['user_id'] ?? 0);
+    $target = $targetId > 0 ? fetch_user_by_id($targetId) : null;
     if (!$target) {
         json_response(false, 'User not found.');
     }
@@ -126,52 +130,56 @@ function handle_revoke_access(array $user): void
     json_response($result['success'], $msg, ['deleted' => $result['deleted'] ?? 0, 'total' => $result['total'] ?? 0]);
 }
 
-$action = $_GET['f'] ?? '';
-$user = current_user();
-
-switch ($action) {
-    case 'defaultaccess':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            json_response(false, 'Method not allowed.');
-        }
-        require_csrf_token($csrfHeader);
-        handle_defaultaccess($user);
-        break;
-
-    case 'applyExtended':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            json_response(false, 'Method not allowed.');
-        }
-        require_csrf_token($csrfHeader);
-        handle_apply_extended($user);
-        break;
-
-    case 'currentAccess':
-        handle_current_access($user);
-        break;
-
-    case 'revokeMine':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            json_response(false, 'Method not allowed.');
-        }
-        require_csrf_token($csrfHeader);
-        handle_revoke_self($user);
-        break;
-
-    case 'revokeAccess':
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            http_response_code(405);
-            json_response(false, 'Method not allowed.');
-        }
-        require_csrf_token($csrfHeader);
-        handle_revoke_access($user);
-        break;
-
-    default:
-        http_response_code(400);
-        json_response(false, 'Unknown action.');
+function handle_save_prefs(array $user): void
+{
+    $input = json_input();
+    $errors = update_user_durations(
+        $user,
+        parse_duration_input((string)($input['default_duration'] ?? '')),
+        parse_duration_input((string)($input['extended_duration'] ?? ''))
+    );
+    if ($errors) {
+        json_response(false, implode(' ', $errors), ['errors' => $errors], 422);
+    }
+    json_response(true, 'Durations saved.');
 }
-?>
+
+switch ($_GET['f'] ?? '') {
+    case 'currentAccess':
+        json_response(true, 'Current accesses fetched.', access_payload($user));
+        // no break
+    case 'defaultaccess':
+        require_post_with_csrf();
+        handle_default_access($user);
+        // no break
+    case 'applyExtended':
+        require_post_with_csrf();
+        handle_apply_extended($user);
+        // no break
+    case 'grantNetwork':
+        require_post_with_csrf();
+        handle_grant_network($user);
+        // no break
+    case 'extendEntry':
+        require_post_with_csrf();
+        handle_entry_action($user, 'extend');
+        // no break
+    case 'revokeEntry':
+        require_post_with_csrf();
+        handle_entry_action($user, 'revoke');
+        // no break
+    case 'revokeMine':
+        require_post_with_csrf();
+        handle_revoke_self($user);
+        // no break
+    case 'revokeAccess':
+        require_post_with_csrf();
+        handle_revoke_access($user);
+        // no break
+    case 'savePrefs':
+        require_post_with_csrf();
+        handle_save_prefs($user);
+        // no break
+    default:
+        json_response(false, 'Unknown action.', [], 400);
+}

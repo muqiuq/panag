@@ -387,6 +387,14 @@ Migrationssystem, Migrationen 001–003, `can()`, Ersatz aller `isadmin`-Prüfun
 ### Phase 2 – Freigabezeiten und Freigabelogik (Aufwand M)
 Dauern pro User inkl. Validierung, Verlängern ohne Kürzen, Widerruf pro Eintrag, Anzeige von Rest- und Ablaufzeit, API-Endpunkte (`grant`, `extend`, `revoke`, `prefs`).
 
+**Stand 2026-11-07:** Umgesetzt und grün (93 PHPUnit-, 38 E2E-Tests).
+- `src/durations.php` (Grenzen, Parsen von Eingaben wie `1:30`, `90m`, `2h`, RouterOS-Formate) und `src/access.php` (Freigeben, Verlängern ohne Kürzen, Widerruf und Verlängern einzelner Einträge, Ansicht der aktiven Freigaben).
+- Profil: Freigabezeiten mit Preset-Chips, Freifeld und "valid until approx."; ungültige Werte liefern HTTP 422 und bleiben zur Korrektur im Feld.
+- Dashboard: aktive Freigaben mit Typ, Restzeit, Ablaufzeit sowie Extend/Revoke pro Eintrag. Das JS liegt neu in `public/js/` und gibt nur über `textContent` aus (Vorarbeit für die CSP).
+- API: `grantNetwork`, `extendEntry`, `revokeEntry`, `savePrefs`; `currentAccess` liefert die aufbereitete Ansicht.
+- Die globalen `DEFAULT_TIMEOUT`/`EXTENDED_TIMEOUT` entfallen; neu begrenzen `MAX_DEFAULT_DURATION`/`MAX_EXTENDED_DURATION` (nur nach unten).
+- Nebenbei: Apache-KeepAlive blockierte mit 5 Workern die Seitenaufrufe (5 s pro Seite) und ist jetzt aus. Einzelne Hosts erkennt PANAG auch ohne `/32`, so wie RouterOS sie anzeigt.
+
 **Fertig, wenn:**
 - 14 min, 15 h (Default) und 13 h (Sonderfreigabe) werden mit HTTP 422 abgelehnt.
 - Der Mock zeigt den korrekten Timeout.

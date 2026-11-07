@@ -15,8 +15,8 @@ test('grant default access creates the address-list entry on the router', async 
   const state = await mockState();
   const entry = state.entries.find((e) => e.list === 'Whitelist 127.0.0.1' && e.address === DEFAULT_NET);
   expect(entry, 'entry exists on mock router').toBeTruthy();
-  expect(entry.comment).toBe('Office LAN');
-  // DEFAULT_TIMEOUT is one hour
+  expect(entry.comment).toBe('PANAG default: Office LAN');
+  // default duration of the admin: 1 h
   const remaining = entry.expires_at - Math.floor(Date.now() / 1000);
   expect(remaining).toBeGreaterThan(3500);
   expect(remaining).toBeLessThanOrEqual(3600);

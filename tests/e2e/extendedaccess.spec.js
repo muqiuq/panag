@@ -20,6 +20,6 @@ test('extended access applies selected networks', async ({ page }) => {
   const state = await mockState();
   const entry = state.entries.find((e) => e.address === EXT_NET);
   expect(entry.list).toBe('Whitelist 127.0.0.1');
-  // EXTENDED_TIMEOUT is 15 minutes
+  // extended duration of the admin: 15 min
   expect(entry.expires_at - Math.floor(Date.now() / 1000)).toBeLessThanOrEqual(900);
 });

@@ -6,7 +6,9 @@ require_once __DIR__ . '/router/RouterClient.php';
 require_once __DIR__ . '/router/RestRouterClient.php';
 require_once __DIR__ . '/migrations.php';
 require_once __DIR__ . '/roles.php';
+require_once __DIR__ . '/durations.php';
 require_once __DIR__ . '/functions.php';
+require_once __DIR__ . '/access.php';
 
 function view_path(string $name): string
 {

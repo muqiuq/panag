@@ -43,25 +43,104 @@ final class AccessGrantTest extends TestCase
         $low = $this->network('Office', 1, '10.10.0.0/24');
         $high = $this->network('Core', 9, '10.255.0.0/28');
 
-        $results = apply_networks_to_user($user, [$low, $high], '01:00:00');
+        $results = grant_networks($user, [$low, $high], 'default');
 
         $this->assertTrue($results[0]['success']);
+        $this->assertSame('added', $results[0]['action']);
         $this->assertFalse($results[1]['success']);
         $this->assertSame('Insufficient access level', $results[1]['message']);
         $this->assertCount(1, $this->router->entries);
         $this->assertSame('Whitelist 10.0.0.2', $this->router->entries[0]['list']);
         $this->assertSame('10.10.0.0/24', $this->router->entries[0]['address']);
+        $this->assertSame('PANAG default: Office', $this->router->entries[0]['comment']);
         $this->assertSame('01:00:00', $this->router->entries[0]['timeout']);
     }
 
-    public function testGrantSkipsAlreadyPresentEntries(): void
+    public function testGrantUsesTheUsersOwnDurations(): void
+    {
+        $user = $this->user('10.0.0.2', 5);
+        $this->assertSame([], update_user_durations($user, 2 * 3600, 30 * 60));
+        $user = fetch_user_by_id((int)$user['id']);
+        $a = $this->network('Office', 1, '10.10.0.0/24');
+        $b = $this->network('VPN', 1, '172.16.0.0/24');
+
+        grant_networks($user, [$a], 'default');
+        grant_networks($user, [$b], 'extended');
+
+        $this->assertSame('02:00:00', $this->router->entries[0]['timeout']);
+        $this->assertSame('00:30:00', $this->router->entries[1]['timeout']);
+        $this->assertSame('PANAG ext: VPN', $this->router->entries[1]['comment']);
+    }
+
+    public function testInvalidDurationsAreRejected(): void
+    {
+        $user = $this->user('10.0.0.2', 5);
+        $this->assertCount(1, update_user_durations($user, 15 * 3600, 900));        // default > 14 h
+        $this->assertCount(1, update_user_durations($user, 3600, 13 * 3600));       // extended > 12 h
+        $this->assertCount(2, update_user_durations($user, 10 * 60, null));         // < 15 min, invalid
+        $this->assertSame(3600, (int)fetch_user_by_id((int)$user['id'])['default_duration_sec']);
+    }
+
+    public function testRegrantExtendsButNeverShortens(): void
+    {
+        $user = $this->user('10.0.0.2', 5);
+        update_user_durations($user, 10 * 3600, 15 * 60);
+        $user = fetch_user_by_id((int)$user['id']);
+        $net = $this->network('Office', 1, '10.10.0.0/24');
+
+        grant_networks($user, [$net], 'default');                      // 10 h
+        $results = grant_networks($user, [$net], 'extended');           // 15 min must not shorten it
+        $this->assertSame('unchanged', $results[0]['action']);
+        $this->assertSame('10:00:00', $this->router->entries[0]['timeout']);
+
+        $this->router->entries[0]['timeout'] = '5m';                    // almost expired
+        $results = grant_networks($user, [$net], 'extended');
+        $this->assertSame('extended', $results[0]['action']);
+        $this->assertSame('00:15:00', $this->router->entries[0]['timeout']);
+        $this->assertCount(1, $this->router->entries);
+    }
+
+    public function testPermanentEntriesAreLeftAlone(): void
+    {
+        $user = $this->user('10.0.0.2', 5);
+        $net = $this->network('Host', 1, '10.10.0.5/32');
+        // RouterOS shows single hosts without /32 and permanent entries without timeout.
+        $this->router->entries[] = ['.id' => '*99', 'list' => 'Whitelist 10.0.0.2', 'address' => '10.10.0.5', 'comment' => 'manual'];
+        $results = grant_networks($user, [$net], 'extended');
+        $this->assertSame('Permanent entry', $results[0]['message']);
+        $this->assertCount(1, $this->router->entries);
+    }
+
+    public function testRevokeAndExtendSingleOwnEntry(): void
+    {
+        $user = $this->user('10.0.0.2', 5);
+        $other = $this->user('10.0.0.3', 5);
+        $net = $this->network('Office', 1, '10.10.0.0/24');
+        grant_networks($user, [$net], 'extended');
+        grant_networks($other, [$net], 'extended');
+        $mine = $this->router->entries[0]['.id'];
+        $theirs = $this->router->entries[1]['.id'];
+
+        $this->assertFalse(revoke_own_entry($user, $theirs)['success'], 'must not touch other users entries');
+        $this->router->entries[0]['timeout'] = '1m';
+        $this->assertTrue(extend_own_entry($user, $mine)['success']);
+        $this->assertSame('00:15:00', $this->router->entries[0]['timeout']);
+
+        $this->assertTrue(revoke_own_entry($user, $mine)['success']);
+        $this->assertCount(1, $this->router->entries);
+        $this->assertSame($theirs, $this->router->entries[0]['.id']);
+    }
+
+    public function testCurrentAccessView(): void
     {
         $user = $this->user('10.0.0.2', 5);
         $net = $this->network('Office', 1, '10.10.0.0/24');
-        apply_networks_to_user($user, [$net]);
-        $results = apply_networks_to_user($user, [$net]);
-        $this->assertSame('Already present', $results[0]['message']);
-        $this->assertCount(1, $this->router->entries);
+        grant_networks($user, [$net], 'default');
+        $view = current_access_view($user);
+        $this->assertSame('Office', $view[0]['network']);
+        $this->assertSame('default', $view[0]['kind']);
+        $this->assertSame(3600, $view[0]['remaining_sec']);
+        $this->assertSame('1 h left', $view[0]['remaining']);
     }
 
     public function testRevokeRemovesOnlyOwnList(): void
@@ -69,8 +148,8 @@ final class AccessGrantTest extends TestCase
         $a = $this->user('10.0.0.2', 5);
         $b = $this->user('10.0.0.3', 5);
         $net = $this->network('Office', 1, '10.10.0.0/24');
-        apply_networks_to_user($a, [$net]);
-        apply_networks_to_user($b, [$net]);
+        grant_networks($a, [$net], 'default');
+        grant_networks($b, [$net], 'default');
 
         $result = remove_address_list_entries('10.0.0.2');
 
@@ -85,9 +164,10 @@ final class AccessGrantTest extends TestCase
         $user = $this->user('10.0.0.2', 5);
         $net = $this->network('Office', 1, '10.10.0.0/24');
         $this->router->failing = true;
-        $results = apply_networks_to_user($user, [$net]);
+        $results = grant_networks($user, [$net], 'default');
         $this->assertFalse($results[0]['success']);
         $this->assertSame(500, $results[0]['status']);
+        $this->assertSame('Some networks failed. API codes: 500', grant_summary($results, 'ok', 'Some networks failed.')['message']);
     }
 
     public function testDeletingUserCascadesDefaultNetworks(): void

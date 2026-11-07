@@ -631,20 +631,6 @@ function last_login_for_user_ip(string $userIp): ?int
     return $val !== false ? (int)$val : null;
 }
 
-function add_address_list_entry(string $userIp, array $network, string $timeout = DEFAULT_TIMEOUT): array
-{
-    $listName = address_list_name($userIp);
-    if (!is_valid_address_list_name($listName)) {
-        return ['success' => false, 'status' => null, 'message' => 'Invalid address list'];
-    }
-    $resp = router()->addAddressListEntry($listName, (string)$network['address'], (string)($network['name'] ?? 'network'), $timeout);
-    return [
-        'success' => $resp['success'],
-        'status' => $resp['status'] ?? null,
-        'message' => $resp['success'] ? 'Applied' : ($resp['error'] ?? 'Failed'),
-    ];
-}
-
 function remove_address_list_entries(string $userIp): array
 {
     $listName = address_list_name($userIp);
@@ -674,35 +660,6 @@ function remove_address_list_entries(string $userIp): array
         'total' => count($entries),
         'errors' => $errors,
     ];
-}
-
-function apply_networks_to_user(array $user, array $networks, string $timeout = DEFAULT_TIMEOUT): array
-{
-    $results = [];
-    $existingAddresses = array_map('strval', array_column(get_current_address_list_entries($user['user_ip']), 'address'));
-    foreach ($networks as $network) {
-        if (!user_can_access_network($user, $network)) {
-            $results[] = ['network' => $network['name'], 'success' => false, 'message' => 'Insufficient access level'];
-            continue;
-        }
-        if (in_array($network['address'], $existingAddresses, true)) {
-            $results[] = [
-                'network' => $network['name'],
-                'success' => true,
-                'status' => null,
-                'message' => 'Already present',
-            ];
-            continue;
-        }
-        $result = add_address_list_entry($user['user_ip'], $network, $timeout);
-        $results[] = [
-            'network' => $network['name'],
-            'success' => $result['success'],
-            'status' => $result['status'] ?? null,
-            'message' => $result['success'] ? 'Applied' : ($result['message'] ?? 'Failed'),
-        ];
-    }
-    return $results;
 }
 
 function save_network(?int $id, string $name, int $accesslevel, string $address): void

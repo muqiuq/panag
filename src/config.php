@@ -115,8 +115,9 @@ $cfg('MIKROTIK_TIMEOUT', 15, 'int');          // seconds, whole request
 
 // --- Access grants -----------------------------------------------------------
 $cfg('ADDRESS_LIST_PREFIX', 'Whitelist ');
-$cfg('DEFAULT_TIMEOUT', '01:00:00');
-$cfg('EXTENDED_TIMEOUT', '00:15:00');
+// Upper limits for the per-user durations. Can only be lowered: hard limits are 14 h / 12 h, minimum 15 min.
+$cfg('MAX_DEFAULT_DURATION', '14h');
+$cfg('MAX_EXTENDED_DURATION', '12h');
 $cfg('MAX_ACCESS_LEVEL', 15, 'int');
 $cfg('WIREGUARD_INTERFACE', 'wg0');
 
