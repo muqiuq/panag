@@ -17,7 +17,7 @@ try {
     <strong>DEV MODE</strong>
     <span>acting as client IP</span>
     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
-    <input type="text" name="ip" list="devIpList" value="<?= htmlspecialchars($__devIp) ?>" class="form-control form-control-sm" style="width: 11rem" aria-label="Dev client IP">
+    <input type="text" name="ip" list="devIpList" value="<?= htmlspecialchars($__devIp) ?>" class="form-control form-control-sm dev-ip-input" aria-label="Dev client IP">
     <datalist id="devIpList">
       <?php foreach ($__devUsers as $__u): ?>
         <option value="<?= htmlspecialchars($__u['user_ip']) ?>"><?= htmlspecialchars($__u['username']) ?><?= $__u['role'] !== 'user' ? ' (' . htmlspecialchars($__u['role']) . ')' : '' ?></option>

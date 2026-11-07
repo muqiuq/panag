@@ -52,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $dbWritable = is_writable(dirname(DB_PATH));
 $dbExists = file_exists(DB_PATH);
+$pageScripts = ['js/kjua.min.js', 'js/otp-qr.js', 'js/setup.js'];
 
 include view_path('header');
 ?>
@@ -88,7 +89,8 @@ include view_path('header');
             <label class="form-label" for="otpSecretSetup">OTP secret (Base32)</label>
             <div class="input-group">
               <input type="text" name="otp_secret" id="otpSecretSetup" class="form-control" value="<?= htmlspecialchars($prefillSecret) ?>" required>
-              <button class="btn btn-outline-secondary" type="button" id="showQrBtn">Show OTP QR</button>
+              <button class="btn btn-outline-secondary" type="button" id="showQrBtn"
+                      data-issuer="<?= htmlspecialchars(OTP_ISSUER) ?>" data-digits="<?= (int)OTP_DIGITS ?>" data-period="<?= (int)OTP_STEP ?>" data-account="<?= htmlspecialchars($remoteIp) ?>">Show OTP QR</button>
             </div>
           </div>
           <div class="mb-3">
@@ -119,43 +121,4 @@ include view_path('header');
   </div>
 </div>
 
-<script src="<?= htmlspecialchars(url_for('js/bootstrap.bundle.min.js')) ?>"></script>
-<script src="<?= htmlspecialchars(url_for('js/kjua.min.js')) ?>"></script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const btn = document.getElementById('showQrBtn');
-  const secretInput = document.getElementById('otpSecretSetup');
-  const usernameInput = document.querySelector('input[name="username"]');
-  const modalEl = document.getElementById('qrModal');
-  const modalTitle = document.getElementById('qrTitle');
-  const modalBody = document.getElementById('qrBody');
-  if (!btn || !secretInput || !modalEl || !window.bootstrap) return;
-  const bsModal = new bootstrap.Modal(modalEl);
-
-  const ISSUER = <?= json_encode(OTP_ISSUER) ?>;
-  const DIGITS = <?= (int)OTP_DIGITS ?>;
-  const PERIOD = <?= (int)OTP_STEP ?>;
-  const userIp = <?= json_encode($remoteIp) ?>;
-
-  btn.addEventListener('click', () => {
-    const secret = secretInput.value.trim();
-    const name = usernameInput?.value?.trim() || 'Admin';
-    if (!secret) return;
-    const label = encodeURIComponent(`${ISSUER}:${userIp}`);
-    const issuer = encodeURIComponent(ISSUER);
-    const otpUrl = `otpauth://totp/${label}?secret=${encodeURIComponent(secret)}&issuer=${issuer}&digits=${DIGITS}&period=${PERIOD}`;
-    modalTitle.textContent = `OTP for ${name} (${userIp})`;
-    modalBody.innerHTML = '';
-    const qr = kjua({
-      text: otpUrl,
-      size: 240,
-      quiet: 2,
-      ecLevel: 'M',
-      render: 'svg',
-    });
-    modalBody.appendChild(qr);
-    bsModal.show();
-  });
-});
-</script>
 <?php include view_path('footer');

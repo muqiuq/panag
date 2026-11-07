@@ -23,19 +23,22 @@ include view_path('header');
 <div class="card shadow-sm">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span>Application configuration (environment variables)</span>
-    <span class="badge bg-secondary">Secrets hidden</span>
+    <div class="d-flex align-items-center gap-2">
+      <input type="search" class="form-control form-control-sm w-auto" placeholder="Filter" aria-label="Filter configuration" data-table-filter="configTable">
+      <span class="badge text-bg-secondary">Secrets hidden</span>
+    </div>
   </div>
   <div class="card-body">
     <?php if (empty($constants)): ?>
       <p class="text-muted mb-0">No configuration constants found.</p>
     <?php else: ?>
       <div class="table-responsive">
-        <table class="table table-sm align-middle">
+        <table class="table table-sm align-middle" id="configTable" data-sortable>
           <thead>
             <tr>
               <th>Name</th>
-              <th style="width: 100px;">Source</th>
-              <th style="width: 100px;">Type</th>
+              <th class="col-narrow">Source</th>
+              <th class="col-narrow">Type</th>
               <th>Value</th>
             </tr>
           </thead>
@@ -43,7 +46,7 @@ include view_path('header');
             <?php foreach ($constants as $item): ?>
               <tr>
                 <td class="fw-semibold"><?= htmlspecialchars($item['name']) ?></td>
-                <td><span class="badge <?= $item['source'] === 'env' ? 'bg-primary' : 'bg-light text-dark' ?>"><?= htmlspecialchars($item['source']) ?></span></td>
+                <td><span class="badge <?= $item['source'] === 'env' ? 'bg-primary' : 'text-bg-light border' ?>"><?= htmlspecialchars($item['source']) ?></span></td>
                 <td class="text-muted small"><?= htmlspecialchars($item['type']) ?></td>
                 <td>
                   <?php

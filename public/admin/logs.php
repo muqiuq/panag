@@ -1,66 +1,65 @@
 <?php
+// Admin: audit log – paginated, so filtering and sorting happen on the server (columns: AUDIT_LOG_SORT_COLUMNS).
 require_once __DIR__ . '/../../src/bootstrap.php';
 require_permission('view_logs');
 
-$search = trim($_GET['q'] ?? '');
-$actionFilter = trim($_GET['action'] ?? '');
+$search = trim((string)($_GET['q'] ?? ''));
+$actionFilter = trim((string)($_GET['action'] ?? ''));
+$order = audit_log_order(isset($_GET['sort']) ? (string)$_GET['sort'] : null, isset($_GET['dir']) ? (string)$_GET['dir'] : null);
 $page = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 100;
-$offset = ($page - 1) * $perPage;
 
 $params = [];
 $where = 'WHERE 1=1';
 if ($actionFilter !== '') {
-  $where .= ' AND action = :action';
-  $params[':action'] = $actionFilter;
+    $where .= ' AND action = :action';
+    $params[':action'] = $actionFilter;
 }
 if ($search !== '') {
-  $where .= ' AND (details LIKE :q OR username LIKE :q2 OR action LIKE :q3)';
-  $like = '%' . $search . '%';
-  $params[':q'] = $like;
-  $params[':q2'] = $like;
-  $params[':q3'] = $like;
+    $where .= ' AND (details LIKE :q OR username LIKE :q2 OR action LIKE :q3 OR user_ip LIKE :q4)';
+    $like = '%' . $search . '%';
+    $params += [':q' => $like, ':q2' => $like, ':q3' => $like, ':q4' => $like];
 }
 
 $countStmt = db()->prepare('SELECT COUNT(*) FROM audit_log ' . $where);
 $countStmt->execute($params);
 $total = (int)$countStmt->fetchColumn();
 $totalPages = max(1, (int)ceil($total / $perPage));
-if ($page > $totalPages) {
-  $page = $totalPages;
-  $offset = ($page - 1) * $perPage;
-}
+$page = min($page, $totalPages);
 
-$dataSql = 'SELECT * FROM audit_log ' . $where . ' ORDER BY id DESC LIMIT :limit OFFSET :offset';
-$stmt = db()->prepare($dataSql);
+$stmt = db()->prepare('SELECT * FROM audit_log ' . $where . ' ' . $order['sql'] . ' LIMIT :limit OFFSET :offset');
 foreach ($params as $k => $v) {
-  $stmt->bindValue($k, $v);
+    $stmt->bindValue($k, $v);
 }
 $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->bindValue(':offset', ($page - 1) * $perPage, PDO::PARAM_INT);
 $stmt->execute();
 $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$actionStmt = db()->query('SELECT DISTINCT action FROM audit_log ORDER BY action');
-$actions = $actionStmt ? $actionStmt->fetchAll(PDO::FETCH_COLUMN) : [];
+$actions = db()->query('SELECT DISTINCT action FROM audit_log ORDER BY action')->fetchAll(PDO::FETCH_COLUMN) ?: [];
+$query = ['q' => $search, 'action' => $actionFilter, 'sort' => $order['key'], 'dir' => $order['dir']];
+$pageLink = fn(int $p) => '?' . http_build_query(array_merge($query, ['page' => $p]));
+$header = fn(string $label, string $key) => sort_header_cell($label, $key, $order['key'], $order['dir'], ['q' => $search, 'action' => $actionFilter]);
 
 include view_path('header');
 ?>
 <div class="card shadow-sm mb-4">
   <div class="card-header d-flex justify-content-between align-items-center">
     <span>Audit log</span>
-    <span class="text-muted small">Page <?= (int)$page ?> of <?= (int)$totalPages ?> (<?= (int)$total ?> entries)</span>
+    <span class="text-muted small">Page <?= $page ?> of <?= $totalPages ?> (<?= $total ?> entries)</span>
   </div>
   <div class="card-body">
     <form class="row g-2 mb-3" method="get">
+      <input type="hidden" name="sort" value="<?= e($order['key']) ?>">
+      <input type="hidden" name="dir" value="<?= e($order['dir']) ?>">
       <div class="col-md-4">
-        <input type="text" class="form-control" name="q" placeholder="Search details, user, action" value="<?= htmlspecialchars($search) ?>">
+        <input type="search" class="form-control" name="q" placeholder="Search details, user, IP, action" aria-label="Search" value="<?= e($search) ?>">
       </div>
       <div class="col-md-3">
-        <select class="form-select" name="action">
+        <select class="form-select" name="action" aria-label="Action">
           <option value="">All actions</option>
           <?php foreach ($actions as $a): ?>
-            <option value="<?= htmlspecialchars($a) ?>" <?= $actionFilter === $a ? 'selected' : '' ?>><?= htmlspecialchars($a) ?></option>
+            <option value="<?= e($a) ?>" <?= $actionFilter === $a ? 'selected' : '' ?>><?= e($a) ?></option>
           <?php endforeach; ?>
         </select>
       </div>
@@ -71,62 +70,42 @@ include view_path('header');
 
     <nav aria-label="Audit log pagination" class="mb-3">
       <ul class="pagination mb-0">
-        <?php
-          $queryBase = ['q' => $search, 'action' => $actionFilter];
-          $prevPage = max(1, $page - 1);
-          $nextPage = min($totalPages, $page + 1);
-          $prevQuery = http_build_query(array_merge($queryBase, ['page' => $prevPage]));
-          $nextQuery = http_build_query(array_merge($queryBase, ['page' => $nextPage]));
-        ?>
         <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-          <a class="page-link" href="?<?= htmlspecialchars($prevQuery) ?>" aria-label="Previous">&laquo;</a>
+          <a class="page-link" href="<?= e($pageLink(max(1, $page - 1))) ?>" aria-label="Previous">&laquo;</a>
         </li>
-        <li class="page-item disabled"><span class="page-link">Page <?= (int)$page ?> / <?= (int)$totalPages ?></span></li>
+        <li class="page-item disabled"><span class="page-link">Page <?= $page ?> / <?= $totalPages ?></span></li>
         <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
-          <a class="page-link" href="?<?= htmlspecialchars($nextQuery) ?>" aria-label="Next">&raquo;</a>
+          <a class="page-link" href="<?= e($pageLink(min($totalPages, $page + 1))) ?>" aria-label="Next">&raquo;</a>
         </li>
       </ul>
     </nav>
 
     <div class="table-responsive">
-      <table class="table table-sm align-middle">
+      <table class="table table-sm align-middle" id="auditLogTable" data-server-sorted>
         <thead>
           <tr>
-            <th>Time</th>
-            <th>Action</th>
-            <th>User</th>
-            <th>User IP</th>
-            <th>Details</th>
-            <th>IP</th>
+            <?= $header('Time', 'time') ?>
+            <?= $header('Action', 'action') ?>
+            <?= $header('User', 'user') ?>
+            <?= $header('User IP', 'user_ip') ?>
+            <?= $header('Details', 'details') ?>
+            <?= $header('IP', 'ip') ?>
           </tr>
         </thead>
         <tbody>
           <?php if (empty($rows)): ?>
             <tr><td colspan="6" class="text-muted">No entries.</td></tr>
-          <?php else: ?>
-            <?php foreach ($rows as $row): ?>
-              <tr>
-                <td><?= htmlspecialchars(date('Y-m-d H:i:s', (int)$row['created_at'])) ?></td>
-                <td><span class="badge bg-secondary"><?= htmlspecialchars($row['action']) ?></span></td>
-                <td>
-                  <?php if (!empty($row['username'])): ?>
-                    <?= htmlspecialchars($row['username']) ?>
-                  <?php else: ?>
-                    <span class="text-muted">n/a</span>
-                  <?php endif; ?>
-                </td>
-                <td>
-                  <?php if (!empty($row['user_ip'])): ?>
-                    <?= htmlspecialchars($row['user_ip']) ?>
-                  <?php else: ?>
-                    <span class="text-muted">n/a</span>
-                  <?php endif; ?>
-                </td>
-                <td><?= htmlspecialchars($row['details'] ?? '') ?></td>
-                <td><?= htmlspecialchars($row['ip'] ?? '') ?></td>
-              </tr>
-            <?php endforeach; ?>
           <?php endif; ?>
+          <?php foreach ($rows as $row): ?>
+            <tr>
+              <td class="text-nowrap"><?= e(date('Y-m-d H:i:s', (int)$row['created_at'])) ?></td>
+              <td><span class="badge text-bg-secondary"><?= e($row['action']) ?></span></td>
+              <td><?= !empty($row['username']) ? e($row['username']) : '<span class="text-muted">n/a</span>' ?></td>
+              <td><?= !empty($row['user_ip']) ? e($row['user_ip']) : '<span class="text-muted">n/a</span>' ?></td>
+              <td><?= e($row['details'] ?? '') ?></td>
+              <td><?= e($row['ip'] ?? '') ?></td>
+            </tr>
+          <?php endforeach; ?>
         </tbody>
       </table>
     </div>

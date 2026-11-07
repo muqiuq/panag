@@ -61,9 +61,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php include view_path('partials/dev_banner'); ?>
 <div class="container d-flex justify-content-center align-items-center min-vh-100">
     <?php if ($ipAllowed): ?>
-                <div class="d-flex flex-column align-items-center w-100" style="max-width: 420px;">
-                    <div class="mb-3 text-center" style="max-width: 280px; width: 100%; margin: 0 auto;">
-                        <img src="<?= htmlspecialchars(url_for('img/' . $heroImage)) ?>" alt="PANAG logo" style="max-width: 280px; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: contain;">
+                <div class="d-flex flex-column align-items-center w-100 login-column">
+                    <div class="mb-3 text-center login-hero">
+                        <img src="<?= htmlspecialchars(url_for('img/' . $heroImage)) ?>" alt="PANAG logo" class="login-hero-img">
                     </div>
           <div class="card shadow-sm w-100">
               <div class="card-body">
@@ -93,8 +93,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <div class="text-center text-muted small mt-2">Server time: <?= htmlspecialchars(date('Y-m-d H:i:s')) ?></div>
         </div>
     <?php else: ?>
-        <div class="text-center text-muted" style="font-size: 1.1rem;">
-            <div style="font-size: 3rem; line-height: 1;">🤏</div>
+        <div class="text-center text-muted nothing-here">
+            <div class="nothing-here-icon">🤏</div>
             <div>There is nothing here.</div>
         </div>
     <?php endif; ?>

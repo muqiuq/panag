@@ -4,7 +4,7 @@ Stand: 2026-11-07 · Branch `main` · Dient dazu, die Arbeit auf einem anderen R
 Claude-Session) nahtlos fortzusetzen. Der Gesamtplan steht in [PLAN.md](PLAN.md); dieses Dokument fasst
 zusammen, was entschieden, gebaut und gelernt wurde.
 
-> Neue Claude-Session: „Lies PLAN.md und HANDOFF.md und mach mit Phase 3 weiter.“
+> Neue Claude-Session: „Lies PLAN.md und HANDOFF.md und mach mit Phase 4 weiter.“
 
 ---
 
@@ -47,8 +47,9 @@ Gewünscht (vom User):
 | `ee1e2a4` | 0 – Fundament | `public/` als einziger Webroot, `src/`, `bin/`; Config via Env-Variablen; `RouterClient` + Mock-RouterOS; Alpine-Image (~40 MB); `run.sh`; PHPUnit/PHPStan/Playwright in Containern; GitHub Actions; Setup nur solange kein Admin existiert |
 | `48b09b1` | 1 – Datenmodell & Rollen | Migrationen (`PRAGMA user_version`, Backup vor Migration); Rollen + `can()`; letzter Admin geschützt; `profile.php` mit eigenen Default-Netzen (Superuser/Admin); Impersonation mit Rückweg |
 | `189b31c` | 2 – Freigabezeiten | Dauern pro User (15 min–14 h / 15 min–12 h, Server-Validierung 422); Verlängern ohne Kürzen; Extend/Revoke pro Eintrag; JS nach `public/js/` (nur `textContent`) |
+| „Phase 3: …“ | 3 – Bedienung | Kommandofeld (`/`, Ctrl/Cmd+K, IP-Suche, `vpn 2h`); Admin-Seiten `users`/`user` (Tabs)/`networks`/`matrix`; Default-Netze überall nur ≤ Level (auch Admins); OTP-Secret nur nach „Reveal“ (geloggt); alle Tabellen sortierbar, Log serverseitig; CSP aktiv |
 
-Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **93 PHPUnit**, **38 E2E**.
+Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **104 PHPUnit**, **89 E2E**.
 GitHub Actions: Workflow geschrieben und mit `actionlint` geprüft, **aber noch nie auf GitHub gelaufen**.
 
 ### Unterwegs gefundene und behobene Bugs (wichtig für Produktion)
@@ -59,6 +60,8 @@ GitHub Actions: Workflow geschrieben und mit `actionlint` geprüft, **aber noch 
 - Apache-KeepAlive blockierte mit 5 Prefork-Workern Seitenaufrufe (~5 s) → `KeepAlive Off`.
 - RouterOS zeigt `/32`-Hosts ohne Maske → wurde beim Abgleich normalisiert.
 - Die alten E2E-Tests konnten nie laufen (fehlende Config in CI, Labels ohne `for`, OTP-Replay).
+- `run.sh` brach mit der macOS-Bash 3.2 ab (leeres Array unter `set -u`), Phase 3 hat das behoben.
+- Der QR-Code wurde nie als SVG gerendert: kjua 0.1.1 kennt nur `image`/`canvas` und fiel unbemerkt auf ein Canvas zurück.
 
 ## 4. Auf einem neuen Rechner weitermachen
 
@@ -91,6 +94,10 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 | `src/config.php` | Env-basierte Konfiguration (`panag_env`, `*_FILE` für Secrets) |
 | `src/router/` | `RouterClient` + `RestRouterClient` |
 | `src/access.php`, `src/durations.php` | Freigabelogik und Dauern |
+| `src/default_networks.php` | Wer darf wessen Default-Netze ändern, Level-Grenze, `change_default_networks()` |
+| `src/palette.php`, `public/js/palette.js` | Kommandofeld: Daten (Server) bzw. Ranking, Combobox, Overlay (Browser) |
+| `public/js/app.js`, `public/js/table-sort.js` | gemeinsame Helfer (`api`, `el`, `toast`, Event `panag:access`) bzw. sortierbare Tabellen |
+| `src/views/partials/` | Default-Netz-Editor, Dauern-Formular, Users-Overview (je Seite wiederverwendet) |
 | `src/roles.php` | Rechte-Matrix `can()` |
 | `src/migrations/` | Schema-Migrationen; `bin/migrate.php` läuft beim Container-Start |
 | `dev/mock-routeros/router.php` | Mock der RouterOS-REST-API (`/_mock/reset`, `/_mock/state`, `/_mock/fault`) |
@@ -114,21 +121,25 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 - RouterOS-Befehle in `docs/deploy-mikrotik.md` sind eine Skizze – Parameternamen (`envlist`, `mounts`) vor dem
   Einsatz gegen die installierte RouterOS-Version prüfen.
 - Nach dem ersten Push nach GHCR: Paket-Sichtbarkeit auf GitHub einmalig auf **public** stellen.
+- **macOS-Bash 3.2:** leere Arrays in `run.sh` nur als `${arr[@]+"${arr[@]}"}` expandieren (sonst Abbruch unter `set -u`).
+- **CSP** (`docker/httpd.conf`): kein `<script>`-Inhalt, kein `style="…"`, keine `on…`-Attribute. Seiten-JS in
+  `public/js/`, eingebunden über `$pageScripts` vor `include view_path('footer')`. Bestätigungen per `data-confirm`.
+  Daten an JS als `data-*` oder `<script type="application/json">` mit `JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT`.
+  Änderungen an `httpd.conf` brauchen ein neues Image (`./run.sh up` baut es).
+- Von JS gerenderte Tabellen rufen danach `PanagTableSort.refresh(table)` auf (Sortierung und Filter bleiben erhalten).
+- **E2E:** Impersonation erzeugt eine neue Session-ID, die gespeicherte Session dieser Rolle ist danach ungültig
+  (deshalb laufen die nur lesenden Tests in `impersonation.spec.js` zuerst). Specs, die Default-Netze der Demo-User
+  ändern, stellen sie mit `setDefaults()` (`tests/e2e/utils/ui.js`) wieder her. `getByLabel` trifft auch
+  `aria-label` von Buttons (z. B. die Suche in der Navbar), dann eindeutiger lokalisieren.
 
 ## 7. Offen / nächste Schritte
 
 1. **GitHub Actions** prüfen (User testet; Fehler melden und beheben).
 2. **Phase 0, Punkt 6:** Testinstallation auf dem hEX S nach `docs/deploy-mikrotik.md` (RAM/Speicher prüfen,
    Login-Seite muss die echte WireGuard-IP zeigen, Freigabe muss in der Address-List landen).
-3. **Phase 3 – Bedienung** (nächste Arbeitsphase, siehe PLAN.md 4.5, 4.7, 4.8):
-   - Kommandofeld (`/` bzw. Ctrl/Cmd+K): Treffer live, erstes Enter markiert, zweites Enter/Klick gibt frei
-     (immer Sonderfreigabe-Dauer), IP-Suche (Adresse → enthaltendes Netz), WAI-ARIA-Combobox.
-     Endpoint `api.php?f=grantNetwork` existiert bereits; für die Trefferliste fehlt noch `f=palette`.
-   - Netz-Zuordnung: `admin/users.php` (Tabelle) + `admin/user.php?id=` (Tabs), Matrix, Netzwerk-Dialog,
-     serverseitig nur Default-Netze ≤ Level erlauben (für Superuser bereits umgesetzt, für Admins noch nicht).
-   - `table-sort.js` für alle Tabellen, Log serverseitig sortiert.
-   - CSP aktivieren: Restliches Inline-JS auslagern (`extendedaccess.php`, `admin/status.php`,
-     `admin/config_user.php`, `setup.php`) und `innerHTML` mit Daten entfernen (`extendedaccess.php` fällt weg).
-   - OTP-Secrets nicht mehr im HTML der User-Liste rendern (erst nach „Reveal“).
-4. **Phase 4 – Themes** (PLAN.md 4.9): `users.theme` existiert bereits (Migration 002), Werte noch ungenutzt.
+3. ~~Phase 3 – Bedienung~~ erledigt (Stand siehe PLAN.md, Phase 3).
+4. **Phase 4 – Themes** (nächste Arbeitsphase, PLAN.md 4.9): `users.theme` existiert bereits (Migration 002),
+   Werte noch ungenutzt. Vorarbeit ist teilweise da: keine Inline-Styles mehr, `.stat-tile` ist semantisch.
+   Noch hart codiert: Navbar `bg-danger`, Badges/Buttons mit Bootstrap-Farbklassen. Der Befehl „Theme: …“
+   gehört in `palette_commands()` (`src/palette.php`). Theme-CSS muss ohne Inline-Styles auskommen (CSP).
 5. **Phase 5 – Aufräumen/Doku**, optional RouterOS-CHR-Test in der CI und Trivy.

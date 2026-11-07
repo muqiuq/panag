@@ -423,22 +423,117 @@ function eligible_networks_for_user(array $user): array
     return array_values(array_filter(get_all_networks(), fn($n) => user_can_access_network($user, $n)));
 }
 
-/**
- * Self-service (superuser/admin): replace the user's own default networks.
- * Networks above the user's access level or unknown ids are rejected, never stored.
- * @return array{saved: list<int>, rejected: list<int>}
- */
-function set_own_default_networks(array $user, array $networkIds): array
+function fetch_network_by_id(int $id): ?array
 {
-    if (!can($user, 'edit_own_default_networks')) {
-        throw new RuntimeException('Not allowed to edit own default networks');
+    $stmt = db()->prepare('SELECT * FROM networks WHERE id = :id LIMIT 1');
+    $stmt->execute([':id' => $id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ?: null;
+}
+
+function is_valid_ipv4(string $ip): bool
+{
+    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
+}
+
+/** "10.0.0.0/24" or a single host "10.0.0.5" (RouterOS accepts both in address lists). */
+function is_valid_ipv4_cidr(string $value): bool
+{
+    if (strpos($value, '/') === false) {
+        return is_valid_ipv4($value);
     }
-    $eligible = array_map(fn($n) => (int)$n['id'], eligible_networks_for_user($user));
-    $requested = array_values(array_unique(array_map('intval', $networkIds)));
-    $saved = array_values(array_intersect($requested, $eligible));
-    $rejected = array_values(array_diff($requested, $eligible));
-    set_user_default_networks((int)$user['id'], $saved);
-    return ['saved' => $saved, 'rejected' => $rejected];
+    [$ip, $mask] = explode('/', $value, 2);
+    return is_valid_ipv4($ip) && ctype_digit($mask) && (int)$mask <= 32;
+}
+
+/** @return list<string> */
+function validate_network_input(string $name, string $address): array
+{
+    $errors = [];
+    if ($name === '') {
+        $errors[] = 'Name is required.';
+    }
+    if (!is_valid_ipv4_cidr($address)) {
+        $errors[] = 'Address must be an IPv4 network (10.0.0.0/24) or host (10.0.0.5).';
+    }
+    return $errors;
+}
+
+function is_valid_otp_secret(string $secret): bool
+{
+    return (bool)preg_match('/^[A-Z2-7]{16,128}$/', $secret);
+}
+
+/**
+ * Validate name and login IP of a user. $id = null for a new user.
+ * @return list<string>
+ */
+function validate_user_account(?int $id, string $username, string $userIp): array
+{
+    $errors = [];
+    if ($username === '') {
+        $errors[] = 'Name is required.';
+    }
+    if (!is_valid_ipv4($userIp)) {
+        $errors[] = 'User IP must be an IPv4 address.';
+    } else {
+        $existing = fetch_user_by_user_ip($userIp);
+        if ($existing && (int)$existing['id'] !== (int)$id) {
+            $errors[] = 'User IP ' . $userIp . ' is already used by ' . $existing['username'] . '.';
+        }
+    }
+    return $errors;
+}
+
+/** Update name, IP, role and level (not the OTP secret). The level is clamped to MAX_ACCESS_LEVEL. */
+function update_user_account(int $id, string $username, string $userIp, string $role, int $accesslevel): void
+{
+    if (!is_valid_role($role)) {
+        throw new InvalidArgumentException('Invalid role: ' . $role);
+    }
+    $stmt = db()->prepare('UPDATE users SET username = :n, user_ip = :u, role = :r, accesslevel = :a WHERE id = :id');
+    $stmt->execute([':n' => $username, ':u' => $userIp, ':r' => $role, ':a' => max(0, min($accesslevel, (int)MAX_ACCESS_LEVEL)), ':id' => $id]);
+}
+
+function set_user_otp_secret(int $id, string $secret): void
+{
+    db()->prepare('UPDATE users SET otp_secret = :o WHERE id = :id')->execute([':o' => $secret, ':id' => $id]);
+}
+
+/** otpauth:// URI for authenticator apps (QR code). */
+function otp_provisioning_uri(array $user): string
+{
+    $label = rawurlencode(OTP_ISSUER . ':' . $user['user_ip']);
+    return 'otpauth://totp/' . $label . '?' . http_build_query([
+        'secret' => $user['otp_secret'],
+        'issuer' => OTP_ISSUER,
+        'digits' => OTP_DIGITS,
+        'period' => OTP_STEP,
+    ], '', '&', PHP_QUERY_RFC3986);
+}
+
+/** Sortable audit log columns (query key => SQL column). Anything else falls back to newest first. */
+const AUDIT_LOG_SORT_COLUMNS = [
+    'time' => 'created_at',
+    'action' => 'action',
+    'user' => 'username',
+    'user_ip' => 'user_ip',
+    'details' => 'details',
+    'ip' => 'ip',
+];
+
+/** @return array{key: string, dir: string, sql: string} */
+function audit_log_order(?string $sort, ?string $dir): array
+{
+    $key = isset(AUDIT_LOG_SORT_COLUMNS[(string)$sort]) ? (string)$sort : 'time';
+    $dir = strtolower((string)$dir);
+    if ($dir !== 'asc' && $dir !== 'desc') {
+        $dir = $key === 'time' ? 'desc' : 'asc';
+    }
+    $column = AUDIT_LOG_SORT_COLUMNS[$key] . ($key === 'time' ? '' : ' COLLATE NOCASE');
+    $sqlDir = strtoupper($dir);
+    // id as tie-breaker keeps pages stable
+    return ['key' => $key, 'dir' => $dir, 'sql' => "ORDER BY {$column} {$sqlDir}, id {$sqlDir}"];
 }
 
 /** Admin acting as another user. The original admin is kept in the session. */
@@ -492,14 +587,20 @@ function is_valid_address_list_name(string $listName): bool
     return strncmp($listName, ADDRESS_LIST_PREFIX, strlen(ADDRESS_LIST_PREFIX)) === 0;
 }
 
-function get_current_address_list_entries(string $userIp): array
+/** The user's address-list entries, or null when the router could not be read (unknown ≠ none). */
+function own_address_list_entries(string $userIp): ?array
 {
     $listName = address_list_name($userIp);
     if (!is_valid_address_list_name($listName)) {
         return [];
     }
     $resp = router()->listAddressList($listName);
-    return $resp['success'] && is_array($resp['data']) ? $resp['data'] : [];
+    return $resp['success'] && is_array($resp['data']) ? $resp['data'] : null;
+}
+
+function get_current_address_list_entries(string $userIp): array
+{
+    return own_address_list_entries($userIp) ?? [];
 }
 
 function get_all_address_list_entries(): array
@@ -558,8 +659,9 @@ function admin_access_overview(): array
             $loggedInToday[$k] = true;
         }
     }
+    $byIp = last_logins_by_user_ip();
     foreach ($allUsers as $u) {
-        $lastLogins[$u['user_ip']] = last_login_for_user_ip($u['user_ip']);
+        $lastLogins[$u['user_ip']] = $byIp[$u['user_ip']] ?? null;
     }
     return [
         'allUsers' => $allUsers,
@@ -623,12 +725,12 @@ function mikrotik_wireguard_peers(): array
     return ['success' => true, 'data' => $peers];
 }
 
-function last_login_for_user_ip(string $userIp): ?int
+/** @return array<string, int> user_ip => timestamp of the last successful login */
+function last_logins_by_user_ip(): array
 {
-    $stmt = db()->prepare('SELECT created_at FROM audit_log WHERE action = :action AND user_ip = :uip ORDER BY id DESC LIMIT 1');
-    $stmt->execute([':action' => 'login_success', ':uip' => $userIp]);
-    $val = $stmt->fetchColumn();
-    return $val !== false ? (int)$val : null;
+    $stmt = db()->prepare('SELECT user_ip, MAX(created_at) FROM audit_log WHERE action = :action AND user_ip IS NOT NULL GROUP BY user_ip');
+    $stmt->execute([':action' => 'login_success']);
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_KEY_PAIR));
 }
 
 function remove_address_list_entries(string $userIp): array

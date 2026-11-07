@@ -1,4 +1,4 @@
-// Profile: duration presets and a live "valid until" hint.
+// Access durations form (src/views/partials/duration_form.php): presets and a live "valid until" hint.
 (function () {
   /** Mirrors parse_duration_input() in src/durations.php (subset: h:mm, h:mm:ss, minutes, 1h30m). */
   function parseDuration(value) {

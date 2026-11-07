@@ -55,12 +55,12 @@ include view_path('header');
           <p class="text-muted mb-0">No users have logged in today.</p>
         <?php else: ?>
           <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
+            <table class="table table-sm align-middle mb-0" id="publicStatusTable" data-sortable>
               <thead>
                 <tr>
-                  <th class="text-center" style="width: 48px;">#</th>
+                  <th class="text-center col-icon" data-sort="number"><span class="visually-hidden">Logged in today</span>#</th>
                   <th>Name</th>
-                  <th>User IP</th>
+                  <th data-sort="ip">User IP</th>
                   <th>Access granted</th>
                 </tr>
               </thead>
@@ -74,7 +74,7 @@ include view_path('header');
                   $loggedToday = ($ipKey && isset($loggedInToday[$ipKey])) || ($nameKey && isset($loggedInToday[$nameKey])) || ($idKey !== null && isset($loggedInToday[$idKey]));
                 ?>
                   <tr>
-                    <td class="text-center" aria-label="Logged in today"><?php if ($loggedToday): ?>✅<?php else: ?>❌<?php endif; ?></td>
+                    <td class="text-center" data-sort-value="<?= $loggedToday ? 1 : 0 ?>" title="<?= $loggedToday ? 'Logged in today' : 'Not logged in today' ?>"><?php if ($loggedToday): ?>✅<?php else: ?>❌<?php endif; ?></td>
                     <td><?= htmlspecialchars($u['username']) ?></td>
                     <td><?= htmlspecialchars($u['user_ip']) ?></td>
                     <td><?= $hasAccess ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>' ?></td>

@@ -68,17 +68,20 @@ function entry_remaining_seconds(array $entry): ?int
 
 /**
  * Grant (or extend) access to networks for a user.
- * @return list<array{network: string, address: string, success: bool, status: ?int, action: string, message: string}>
+ * $duration overrides the user's duration of $kind (already validated by the caller).
+ * expires_at is when the entry ends after this call (null = permanent or failed).
+ * @return list<array{network: string, address: string, success: bool, status: ?int, action: string, message: string, expires_at: ?int}>
  */
-function grant_networks(array $user, array $networks, string $kind): array
+function grant_networks(array $user, array $networks, string $kind, ?int $duration = null): array
 {
-    $duration = user_grant_duration($user, $kind);
+    $duration = $duration ?? user_grant_duration($user, $kind);
+    $now = time();
     $listName = address_list_name((string)$user['user_ip']);
     $current = router()->listAddressList($listName);
     if (!$current['success']) {
         return array_map(fn($n) => [
             'network' => (string)$n['name'], 'address' => (string)$n['address'], 'success' => false,
-            'status' => $current['status'], 'action' => 'failed', 'message' => (string)($current['error'] ?? 'API error'),
+            'status' => $current['status'], 'action' => 'failed', 'message' => (string)($current['error'] ?? 'API error'), 'expires_at' => null,
         ], $networks);
     }
     $byAddress = [];
@@ -88,7 +91,7 @@ function grant_networks(array $user, array $networks, string $kind): array
 
     $results = [];
     foreach ($networks as $network) {
-        $result = ['network' => (string)$network['name'], 'address' => (string)$network['address'], 'success' => false, 'status' => null];
+        $result = ['network' => (string)$network['name'], 'address' => (string)$network['address'], 'success' => false, 'status' => null, 'expires_at' => null];
         if (!user_can_access_network($user, $network)) {
             $results[] = $result + ['action' => 'skipped', 'message' => 'Insufficient access level'];
             continue;
@@ -101,7 +104,8 @@ function grant_networks(array $user, array $networks, string $kind): array
                 continue;
             }
             $results[] = ['success' => $resp['success'], 'status' => $resp['status'], 'action' => $resp['success'] ? 'added' : 'failed',
-                'message' => $resp['success'] ? 'Granted for ' . format_duration_human($duration) : (string)($resp['error'] ?? 'Failed')] + $result;
+                'message' => $resp['success'] ? 'Granted for ' . format_duration_human($duration) : (string)($resp['error'] ?? 'Failed'),
+                'expires_at' => $resp['success'] ? $now + $duration : null] + $result;
             continue;
         }
         $remaining = entry_remaining_seconds($existing);
@@ -110,12 +114,13 @@ function grant_networks(array $user, array $networks, string $kind): array
             continue;
         }
         if ($remaining >= $duration) {
-            $results[] = ['success' => true, 'action' => 'unchanged', 'message' => 'Already active, ' . format_duration_human($remaining) . ' left'] + $result;
+            $results[] = ['success' => true, 'action' => 'unchanged', 'message' => 'Already active, ' . format_duration_human($remaining) . ' left', 'expires_at' => $now + $remaining] + $result;
             continue;
         }
         $resp = router()->updateAddressListEntry((string)$existing['.id'], ['timeout' => format_routeros_timeout($duration)]);
         $results[] = ['success' => $resp['success'], 'status' => $resp['status'], 'action' => $resp['success'] ? 'extended' : 'failed',
-            'message' => $resp['success'] ? 'Extended to ' . format_duration_human($duration) : (string)($resp['error'] ?? 'Failed')] + $result;
+            'message' => $resp['success'] ? 'Extended to ' . format_duration_human($duration) : (string)($resp['error'] ?? 'Failed'),
+            'expires_at' => $resp['success'] ? $now + $duration : null] + $result;
     }
     return $results;
 }
@@ -212,4 +217,20 @@ function grant_summary(array $results, string $okMessage, string $failMessage): 
     }
     $codes = array_values(array_unique(array_filter(array_map(fn($r) => $r['success'] ? null : ($r['status'] ?? null), $results))));
     return ['ok' => false, 'message' => $failMessage . ($codes ? ' API codes: ' . implode(', ', $codes) : '')];
+}
+
+/** Toast text for a single-network grant: "VPN granted until 16:45." */
+function single_grant_message(array $result): string
+{
+    $name = $result['network'];
+    if (!$result['success']) {
+        return $name . ' could not be granted: ' . $result['message'] . (isset($result['status']) ? ' (API code ' . $result['status'] . ')' : '');
+    }
+    if ($result['expires_at'] === null) {
+        return $result['message'] === 'Permanent entry' ? $name . ' is permanently granted.' : $name . ' granted.';
+    }
+    $until = date('H:i', (int)$result['expires_at']);
+    return $result['action'] === 'unchanged'
+        ? $name . ' is already active until ' . $until . ' (not shortened).'
+        : $name . ' granted until ' . $until . '.';
 }

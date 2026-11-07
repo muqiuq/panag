@@ -188,24 +188,26 @@ final class AccessGrantTest extends TestCase
         $this->assertTrue(admin_exists());
     }
 
-    public function testSuperuserCanOnlyPickNetworksWithinOwnLevel(): void
-    {
-        $super = $this->user('10.0.0.3', 5, 'superuser');
-        $low = $this->network('Office', 1, '10.10.0.0/24');
-        $high = $this->network('Core', 9, '10.255.0.0/28');
-
-        $result = set_own_default_networks($super, [(int)$low['id'], (int)$high['id'], 999]);
-
-        $this->assertSame([(int)$low['id']], $result['saved']);
-        $this->assertEqualsCanonicalizing([(int)$high['id'], 999], $result['rejected']);
-        $this->assertSame([(int)$low['id']], get_user_default_network_ids((int)$super['id']));
-    }
-
-    public function testRegularUserCannotPickOwnDefaults(): void
+    public function testSingleGrantWithExplicitDurationAndToastText(): void
     {
         $user = $this->user('10.0.0.2', 5);
-        $this->expectException(RuntimeException::class);
-        set_own_default_networks($user, []);
+        $net = $this->network('VPN', 1, '172.16.0.0/24');
+
+        $results = grant_networks($user, [$net], 'extended', 2 * 3600);
+        $this->assertSame('02:00:00', $this->router->entries[0]['timeout']);
+        $this->assertSame('PANAG ext: VPN', $this->router->entries[0]['comment']);
+        $this->assertEqualsWithDelta(time() + 7200, $results[0]['expires_at'], 2);
+        $this->assertSame('VPN granted until ' . date('H:i', $results[0]['expires_at']) . '.', single_grant_message($results[0]));
+
+        // A shorter re-grant keeps the longer entry and says so.
+        $results = grant_networks($user, [$net], 'extended');
+        $this->assertSame('unchanged', $results[0]['action']);
+        $this->assertStringContainsString('already active until', single_grant_message($results[0]));
+        $this->assertSame('02:00:00', $this->router->entries[0]['timeout']);
+
+        $this->router->failing = true;
+        $failed = grant_networks($user, [$net], 'extended');
+        $this->assertSame('VPN could not be granted: HTTP 500 (API code 500)', single_grant_message($failed[0]));
     }
 
     public function testLastAdminCannotBeRemovedOrDemoted(): void

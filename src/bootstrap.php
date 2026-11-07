@@ -9,6 +9,9 @@ require_once __DIR__ . '/roles.php';
 require_once __DIR__ . '/durations.php';
 require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/access.php';
+require_once __DIR__ . '/default_networks.php';
+require_once __DIR__ . '/palette.php';
+require_once __DIR__ . '/html.php';
 
 function view_path(string $name): string
 {

@@ -52,7 +52,7 @@ compose() {
     local files=()
     while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do files+=(-f "$1"); shift; done
     [ "${1:-}" = "--" ] && shift
-    "$ENGINE" compose -p "$project" "${files[@]}" "$@"
+    "$ENGINE" compose -p "$project" ${files[@]+"${files[@]}"} "$@"
 }
 
 dev_compose() { compose "$DEV_PROJECT" compose.yml compose.dev.yml compose.live.yml -- "$@"; }
@@ -92,7 +92,7 @@ tools_run() {
     build_tools
     local tty=()
     [ -t 0 ] && [ -t 1 ] && tty=(-it)
-    "$ENGINE" run --rm "${tty[@]}" -v "$ROOT:/work" -w /work "$TOOLS_IMAGE" "$@"
+    "$ENGINE" run --rm ${tty[@]+"${tty[@]}"} -v "$ROOT:/work" -w /work "$TOOLS_IMAGE" "$@"
 }
 
 ensure_vendor() {
@@ -225,7 +225,7 @@ cmd_report() {
 cmd_npm() {
     local tty=()
     [ -t 0 ] && [ -t 1 ] && tty=(-it)
-    "$ENGINE" run --rm "${tty[@]}" -v "$ROOT:/work" -v "${E2E_PROJECT}_node-modules:/work/node_modules" -w /work \
+    "$ENGINE" run --rm ${tty[@]+"${tty[@]}"} -v "$ROOT:/work" -v "${E2E_PROJECT}_node-modules:/work/node_modules" -w /work \
         mcr.microsoft.com/playwright:v1.57.0-noble npm "$@"
 }
 

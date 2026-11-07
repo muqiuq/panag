@@ -9,8 +9,12 @@ PANAG is a lightweight PHP/SQLite web app that hands out temporary or default ac
  - OTP login (TOTP) only
  - User management with QR codes for authenticator apps
  - Grant on-demand access to networks; each user chooses own durations (default access 15 min – 14 h, extended access 15 min – 12 h)
+ - Keyboard-first search field: type a network name, an IP or a command, Enter selects, Enter grants (`/` or `Ctrl/Cmd+K` on every page; `vpn 2h` grants with a custom duration)
  - Active grants show remaining time and can be extended or revoked individually; re-granting never shortens an active grant
  - User and network management with access levels and roles: user, superuser (chooses own default networks), admin
+ - Default networks per user: editor with search and bulk actions, users × networks matrix, reverse view per network – always limited to the user's access level
+ - All tables sortable (IP-aware); OTP secrets only shown after an explicit, logged "Reveal"
+ - Strict Content-Security-Policy (no inline scripts or styles)
  - Admins can act as another user (impersonation) and return
  - Local assets (Bootstrap/kjua) for offline-friendly deployments
  - Small container image (~40 MB, Alpine + Apache + PHP 8.4) for `amd64`, `arm64` and `arm/v7`

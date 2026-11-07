@@ -413,6 +413,16 @@ Dauern pro User inkl. Validierung, Verlängern ohne Kürzen, Widerruf pro Eintra
 - Die Sortierung aller Tabellen ist getestet.
 - Die CSP erzeugt keine Fehler in der Konsole.
 
+**Stand 2026-11-07 (Phase 3):** Umgesetzt und grün (104 PHPUnit-, 89 E2E-Tests). Alle vier Abnahmekriterien sind als E2E-Test abgedeckt.
+- Kommandofeld (`public/js/palette.js`, Daten über `api.php?f=palette`, auf dem Dashboard eingebettet, damit kein zweiter Router-Aufruf nötig ist): Ranking nach Präfix, Wortanfang, Adresse und unscharfem Treffer ab Wortanfang ("dc" → Datacenter); IP-Suche; Dauer-Suffix (`vpn 2h`, serverseitig geprüft, 422 bei Überschreitung); Befehle je Rolle, für Admins "Find user" und "Go to …".
+- Netz-Zuordnung: `admin/users.php` (Liste), `admin/user.php` (Tabs, Tab per URL-Hash), `admin/matrix.php`, `admin/networks.php` mit Dialogen. Ein Endpoint `setDefaultNetworks` für alle Oberflächen; die Level-Grenze gilt serverseitig jetzt auch für Admins. Wird der Level gesenkt, bleiben die betroffenen Defaults gespeichert, werden aber als ungültig markiert und lassen sich nur noch entfernen.
+- `table-sort.js` auf allen Tabellen, inklusive des Default-Netz-Editors. Das Audit-Log sortiert serverseitig (`audit_log_order()`, Spalten-Whitelist).
+- CSP aktiv (`docker/httpd.conf`): kein Inline-JS oder -CSS mehr, kein `innerHTML` mit Daten. Seiten-Skripte laufen über `$pageScripts` im Footer. Daten kommen als `data-*`-Attribute oder als `<script type="application/json">`.
+- Alte URLs (`extendedaccess.php`, `admin/config_user.php`, `config_networks.php`, `config_constants.php`) leiten per 301 weiter.
+- Abweichungen: Der Befehl "Theme: …" im Kommandofeld folgt mit Phase 4. Der OTP-QR-Code ist ein `<img>`, weil kjua 0.1.1 kein SVG kann; der alte Code erzeugte mit `render: 'svg'` unbemerkt ein Canvas. Die Vorschau-Kachel `.stat-tile` ist schon semantisch, die Navbar (`bg-danger`) noch nicht.
+- Ein unabhängiges Review fand keine Rechte- oder Injection-Lücken. Behoben wurden: Hover wählte Treffer auch bei ruhendem Mauszeiger aus (dann hätte schon das erste Enter freigegeben), jetzt erst nach echter Bewegung. Ein Router-Fehler leerte die Liste der aktiven Freigaben, jetzt bleibt sie stehen und das Dashboard zeigt einen Hinweis. Ein fehlgeschlagener Befehl im Kommandofeld löschte die Eingabe. `.d-flex` übersteuerte `[hidden]`. Superuser konnten über 403/404 erkennen, welche User-IDs existieren. Der Netz-Import prüfte die Adressen nicht.
+- Nebenbei gefunden: `run.sh` brach mit der macOS-Bash 3.2 ab, weil leere Arrays unter `set -u` als ungesetzt gelten. Der alte Impersonation-Test lief nach dem Session-Wechsel ausgeloggt und prüfte deshalb nichts.
+
 ### Phase 4 – Themes (Aufwand M)
 Semantische Klassen, 8 Theme-Dateien, Auswahl im Profil und im Kommandofeld, Theme-Cookie für die Login-Seite, Screenshot- und Axe-Tests.
 

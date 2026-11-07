@@ -1,85 +1,98 @@
-// Dashboard: default access, active entries (with per-entry extend/revoke), admin revoke buttons.
+// Dashboard: default access, active entries (extend/revoke per entry), all networks (grant per row).
+// The command palette (palette.js) grants too; both stay in sync through the "panag:access" event.
 (function () {
-  const { api, el, showAlert } = window.Panag;
-  const container = document.getElementById('currentAccessContainer');
-  const currentResult = document.getElementById('currentAccessResult');
-  const defaultResult = document.getElementById('defaultAccessResult');
+  const { api, el, toast, busy, formatLeft, remainingSeconds, untilClock, normalizeAddress, accessChanged } = window.Panag;
+  const activeTable = document.getElementById('activeAccessTable');
+  const networksTable = document.getElementById('networksTable');
   const selfRevokeBtn = document.getElementById('btnSelfRevoke');
   const defaultBtn = document.getElementById('btnDefaultAccess');
-  const overlay = document.getElementById('spinnerOverlay');
-
   const KIND_LABEL = { default: 'Default', extended: 'Extended' };
+  const PERMANENT_SORT = '999999999';
+  let entries = [];
 
-  function busy(on) {
-    if (overlay) overlay.classList.toggle('active', on);
-  }
-
-  function renderEntries(entries) {
-    if (!container) return;
-    if (!entries || entries.length === 0) {
-      container.replaceChildren(el('p', { class: 'text-muted' }, 'No active address list entries.'));
-    } else {
-      const items = entries.map((e) => el('li', { class: 'list-group-item d-flex justify-content-between align-items-center gap-2', dataset: { entryId: e.id } },
-        el('div', {},
-          el('strong', {}, e.network || e.address), ' ',
-          el('code', { class: 'small' }, e.address), ' ',
-          e.kind ? el('span', { class: `badge ${e.kind === 'default' ? 'bg-secondary' : 'bg-warning text-dark'}` }, KIND_LABEL[e.kind]) : null,
-          el('div', { class: 'small text-muted' }, e.until ? `${e.remaining} · until ${e.until}` : e.remaining)),
+  function entryRow(e) {
+    const left = remainingSeconds(e);
+    const name = e.network || e.address;
+    const now = Math.floor(Date.now() / 1000);
+    return el('tr', { dataset: { entryId: e.id } },
+      el('td', {}, el('strong', {}, name)),
+      el('td', {}, el('code', {}, e.address)),
+      el('td', {}, e.kind ? el('span', { class: `badge ${e.kind === 'default' ? 'text-bg-secondary' : 'text-bg-warning'}` }, KIND_LABEL[e.kind]) : '–'),
+      el('td', { 'data-sort-value': left === null ? PERMANENT_SORT : String(left) }, left === null ? 'permanent' : `${formatLeft(left)} left`),
+      el('td', { 'data-sort-value': left === null ? PERMANENT_SORT : String(now + left) }, untilClock(e)),
+      el('td', { class: 'text-end text-nowrap' },
         el('div', { class: 'btn-group btn-group-sm' },
-          e.remaining_sec !== null ? el('button', { type: 'button', class: 'btn btn-outline-secondary', 'aria-label': `Extend ${e.network || e.address}`, onclick: () => entryAction('extendEntry', e) }, 'Extend') : null,
-          el('button', { type: 'button', class: 'btn btn-outline-danger', 'aria-label': `Revoke ${e.network || e.address}`, onclick: () => entryAction('revokeEntry', e) }, 'Revoke'))));
-      container.replaceChildren(el('ul', { class: 'list-group' }, items));
-    }
-    if (selfRevokeBtn) selfRevokeBtn.disabled = !entries || entries.length === 0;
+          left !== null ? el('button', { type: 'button', class: 'btn btn-outline-secondary', 'data-entry-action': 'extendEntry', 'aria-label': `Extend ${name}` }, 'Extend') : null,
+          el('button', { type: 'button', class: 'btn btn-outline-danger', 'data-entry-action': 'revokeEntry', 'aria-label': `Revoke ${name}` }, 'Revoke'))));
   }
+
+  function renderActive() {
+    if (!activeTable) return;
+    const body = activeTable.tBodies[0];
+    if (entries.length === 0) {
+      body.replaceChildren(el('tr', {}, el('td', { colspan: 6, class: 'text-muted' }, 'No active address list entries.')));
+    } else {
+      body.replaceChildren(...entries.map(entryRow));
+    }
+    window.PanagTableSort.refresh(activeTable);
+    if (selfRevokeBtn) selfRevokeBtn.disabled = entries.length === 0;
+  }
+
+  function renderNetworkStatus() {
+    if (!networksTable) return;
+    const byAddress = new Map(entries.map((e) => [normalizeAddress(e.address), e]));
+    networksTable.querySelectorAll('tbody tr[data-address]').forEach((row) => {
+      const entry = byAddress.get(normalizeAddress(row.dataset.address));
+      const cell = row.querySelector('[data-status]');
+      const left = entry ? remainingSeconds(entry) : null;
+      cell.dataset.sortValue = entry ? (left === null ? PERMANENT_SORT : String(left)) : '';
+      cell.replaceChildren(entry ? el('span', { class: 'badge text-bg-success' }, left === null ? 'active' : `active, ${formatLeft(left)} left`) : '');
+    });
+  }
+
+  document.addEventListener('panag:access', (event) => {
+    entries = event.detail.entries;
+    renderActive();
+    renderNetworkStatus();
+  });
 
   async function refresh() {
-    const data = await api('currentAccess').catch(() => null);
-    if (data && data.status) renderEntries(data.entries);
+    const data = await api('currentAccess');
+    if (data.status) accessChanged(data.entries);
   }
 
-  async function entryAction(action, entry) {
-    const data = await api(action, { id: entry.id }).catch(() => ({ status: false }));
-    showAlert(currentResult, data.status, data.message);
-    if (data.entries) renderEntries(data.entries); else refresh();
+  async function call(button, action, body) {
+    busy(button, true);
+    const data = await api(action, body);
+    busy(button, false);
+    toast(data.message, data.status);
+    if (data.entries) accessChanged(data.entries); else refresh();
+    return data;
   }
 
-  if (defaultBtn) {
-    defaultBtn.addEventListener('click', async () => {
-      busy(true);
-      if (defaultResult) defaultResult.replaceChildren();
-      const data = await api('defaultaccess', {}).catch(() => ({ status: false }));
-      busy(false);
-      showAlert(defaultResult, data.status, data.message);
-      if (data.entries) renderEntries(data.entries); else refresh();
-    });
-  }
+  activeTable?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-entry-action]');
+    if (button) call(button, button.dataset.entryAction, { id: button.closest('tr').dataset.entryId });
+  });
 
-  if (selfRevokeBtn) {
-    selfRevokeBtn.addEventListener('click', async () => {
-      if (!confirm('Remove all of your current accesses?')) return;
-      const data = await api('revokeMine', {}).catch(() => ({ status: false }));
-      showAlert(currentResult, data.status, data.message);
-      if (data.entries) renderEntries(data.entries); else refresh();
-    });
-  }
+  networksTable?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-grant]');
+    if (button) call(button, 'grantNetwork', { network_id: Number(button.dataset.grant) });
+  });
 
-  // Admin overview: revoke all entries of a user.
-  const revokeResult = document.getElementById('revokeResult');
-  document.querySelectorAll('.revoke-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!confirm(`Revoke all access for ${btn.dataset.username}?`)) return;
-      const data = await api('revokeAccess', { user_id: btn.dataset.userId }).catch(() => ({ status: false }));
-      showAlert(revokeResult, data.status, data.message);
-      if (data.status) setTimeout(() => window.location.reload(), 600);
-    });
+  defaultBtn?.addEventListener('click', () => call(defaultBtn, 'defaultaccess', {}));
+
+  selfRevokeBtn?.addEventListener('click', () => {
+    if (window.confirm('Remove all of your current accesses?')) call(selfRevokeBtn, 'revokeMine', {});
   });
 
   // Initial state is embedded by the server; keep the remaining times fresh.
+  let initial = [];
   try {
-    renderEntries(JSON.parse(container?.dataset.entries || '[]'));
+    initial = JSON.parse(activeTable?.dataset.entries || '[]');
   } catch (e) {
     refresh();
   }
+  accessChanged(initial);
   setInterval(refresh, 30000);
 })();

@@ -10,6 +10,17 @@ const USERS = {
   login: { ip: '10.0.0.9', name: 'Login Tester' },
 };
 
+// Database ids of the demo data (fresh database per E2E run, inserted in this order).
+const USER_IDS = { admin: 1, admin2: 2, regular: 3, superuser: 4, login: 5 };
+const NETWORKS = { office: 1, printers: 2, vpn: 3, management: 4, datacenter: 5, core: 6 };
+// Default networks as seeded – specs that change them restore these.
+const SEEDED_DEFAULTS = {
+  admin: [NETWORKS.office],
+  admin2: [NETWORKS.office, NETWORKS.vpn, NETWORKS.datacenter],
+  regular: [NETWORKS.office, NETWORKS.printers],
+  superuser: [NETWORKS.office],
+};
+
 const MOCK_URL = process.env.MOCK_URL || 'http://127.0.0.1:18081';
 
-module.exports = { OTP_SECRET, USERS, MOCK_URL };
+module.exports = { OTP_SECRET, USERS, USER_IDS, NETWORKS, SEEDED_DEFAULTS, MOCK_URL };

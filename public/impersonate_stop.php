@@ -8,5 +8,5 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 require_csrf_token($_POST['csrf_token'] ?? null);
 $admin = stop_impersonation();
-header('Location: ' . url_for($admin ? 'admin/config_user.php' : 'login.php'));
+header('Location: ' . url_for($admin ? 'admin/users.php' : 'login.php'));
 exit;

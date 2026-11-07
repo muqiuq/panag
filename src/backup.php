@@ -31,6 +31,10 @@ function import_networks_json(string $json, bool $replace = true): int
         if ($name === '' || $address === '') {
             throw new InvalidArgumentException('Missing name or address at index ' . $idx);
         }
+        $errors = validate_network_input($name, $address);
+        if ($errors) {
+            throw new InvalidArgumentException(implode(' ', $errors) . ' (index ' . $idx . ')');
+        }
         if ($level < 0 || $level > (int)MAX_ACCESS_LEVEL) {
             throw new InvalidArgumentException('Invalid access level at index ' . $idx);
         }

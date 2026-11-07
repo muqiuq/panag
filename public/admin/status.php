@@ -52,6 +52,24 @@ function wg_format_handshake($value): string
     return $ts ? date('Y-m-d H:i:s', $ts) : (string)$value;
 }
 
+/** Seconds since the last handshake (RouterOS reports an age like "1m23s"), for sorting. */
+function wg_handshake_age($value): ?int
+{
+    if ($value === null || $value === '') {
+        return null;
+    }
+    if (is_numeric($value)) {
+        return max(0, time() - (int)$value);
+    }
+    $age = parse_routeros_duration((string)$value);
+    if ($age !== null) {
+        return $age;
+    }
+    $ts = strtotime((string)$value);
+    return $ts ? max(0, time() - $ts) : null;
+}
+
+$pageScripts = ['js/users-overview.js'];
 include view_path('header');
 ?>
 <div class="row g-4">
@@ -78,13 +96,13 @@ include view_path('header');
         <?php endif; ?>
         <div class="row g-3">
           <div class="col-md-6">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">Identity</div>
               <div class="fs-5 fw-semibold mb-0"><?= $identityName ? htmlspecialchars($identityName) : 'n/a' ?></div>
             </div>
           </div>
           <div class="col-md-6">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">Uptime</div>
               <div class="fs-5 fw-semibold mb-0"><?= $uptimeValue ? htmlspecialchars($uptimeValue) : 'n/a' ?></div>
             </div>
@@ -92,14 +110,14 @@ include view_path('header');
         </div>
         <div class="row g-3 mt-1">
           <div class="col-md-6">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">Router time</div>
               <div class="fs-6 fw-semibold mb-0"><?= $routerTimeDisplay ? htmlspecialchars($routerTimeDisplay) : 'n/a' ?></div>
               <div class="text-muted small">Timezone: <?= $routerTz ? htmlspecialchars($routerTz) : 'n/a' ?></div>
             </div>
           </div>
           <div class="col-md-6">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">PHP server time</div>
               <div class="fs-6 fw-semibold mb-0"><?= htmlspecialchars($serverTimeDisplay) ?></div>
               <div class="text-muted small">Timezone: <?= htmlspecialchars($serverTz) ?></div>
@@ -123,7 +141,7 @@ include view_path('header');
       <div class="card-body">
         <div class="row row-cols-1 row-cols-md-3 g-3">
           <div class="col">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">Users logged in today</div>
               <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['logins_today'] ?? 0) ?> / <?= htmlspecialchars($stats['total_users'] ?? 0) ?></div>
               <?php if (isset($stats['login_coverage_pct'])): ?>
@@ -132,25 +150,25 @@ include view_path('header');
             </div>
           </div>
           <div class="col">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">Login failures today</div>
               <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['login_fails_today'] ?? 0) ?></div>
             </div>
           </div>
           <div class="col">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">Audit events today</div>
               <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['audit_events_today'] ?? 0) ?></div>
             </div>
           </div>
           <div class="col">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">Networks configured</div>
               <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['total_networks'] ?? 0) ?></div>
             </div>
           </div>
           <div class="col">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">Access list entries</div>
               <?php if (array_key_exists('accesses_granted', $stats) && $stats['accesses_granted'] !== null): ?>
                 <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['accesses_granted']) ?></div>
@@ -163,7 +181,7 @@ include view_path('header');
             </div>
           </div>
           <div class="col">
-            <div class="p-3 border rounded bg-light h-100">
+            <div class="stat-tile h-100">
               <div class="text-muted small">WireGuard peers<?php if (defined('WIREGUARD_INTERFACE') && WIREGUARD_INTERFACE !== ''): ?> (<?= htmlspecialchars(WIREGUARD_INTERFACE) ?>)<?php endif; ?></div>
               <div class="fs-5 fw-semibold mb-0"><?= htmlspecialchars($stats['wireguard_peers'] ?? 0) ?></div>
             </div>
@@ -191,26 +209,31 @@ include view_path('header');
           <p class="text-muted mb-0">No peers found.</p>
         <?php else: ?>
           <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
+            <table class="table table-sm align-middle mb-0" id="wireguardPeersTable" data-sortable>
               <thead>
                 <tr>
                   <th>Public key</th>
                   <th>Comment</th>
                   <th>Name</th>
-                  <th>Last handshake</th>
-                  <th class="text-end">TX</th>
-                  <th class="text-end">RX</th>
+                  <th data-sort="number">Last handshake</th>
+                  <th data-sort="number" class="text-end">TX</th>
+                  <th data-sort="number" class="text-end">RX</th>
                 </tr>
               </thead>
               <tbody>
                 <?php foreach ($peers as $peer): ?>
                   <tr>
-                    <td class="small text-break" style="max-width: 220px;"><?= htmlspecialchars($peer['public-key'] ?? $peer['public_key'] ?? 'n/a') ?></td>
-                    <td><?= htmlspecialchars($peer['comment'] ?? '') ?></td>
-                    <td><?= htmlspecialchars($peer['name'] ?? '') ?></td>
-                    <td class="small text-muted"><?= htmlspecialchars(wg_format_handshake($peer['last-handshake'] ?? $peer['last_handshake'] ?? null)) ?></td>
-                    <td class="text-end small"><?= htmlspecialchars(wg_format_bytes($peer['tx'] ?? $peer['tx-byte'] ?? $peer['tx_bytes'] ?? null)) ?></td>
-                    <td class="text-end small"><?= htmlspecialchars(wg_format_bytes($peer['rx'] ?? $peer['rx-byte'] ?? $peer['rx_bytes'] ?? null)) ?></td>
+                    <?php
+                      $handshake = $peer['last-handshake'] ?? $peer['last_handshake'] ?? null;
+                      $tx = $peer['tx'] ?? $peer['tx-byte'] ?? $peer['tx_bytes'] ?? null;
+                      $rx = $peer['rx'] ?? $peer['rx-byte'] ?? $peer['rx_bytes'] ?? null;
+                    ?>
+                    <td class="small text-break col-key"><?= e($peer['public-key'] ?? $peer['public_key'] ?? 'n/a') ?></td>
+                    <td><?= e($peer['comment'] ?? '') ?></td>
+                    <td><?= e($peer['name'] ?? '') ?></td>
+                    <td class="small text-muted" data-sort-value="<?= e(wg_handshake_age($handshake) ?? '') ?>"><?= e(wg_format_handshake($handshake)) ?></td>
+                    <td class="text-end small" data-sort-value="<?= is_numeric($tx) ? e($tx) : '' ?>"><?= e(wg_format_bytes($tx)) ?></td>
+                    <td class="text-end small" data-sort-value="<?= is_numeric($rx) ? e($rx) : '' ?>"><?= e(wg_format_bytes($rx)) ?></td>
                   </tr>
                 <?php endforeach; ?>
               </tbody>
@@ -221,44 +244,4 @@ include view_path('header');
     </div>
   </div>
 </div>
-<script>
-const BASE_PATH = document.body.dataset.basePath || '';
-const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content || document.body.dataset.csrfToken || '';
-const revokeResult = document.getElementById('revokeResult');
-
-document.querySelectorAll('.revoke-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const uid = btn.dataset.userId;
-    const uname = btn.dataset.username;
-    if (!uid) return;
-    if (!confirm(`Revoke all access for ${uname}?`)) return;
-    if (revokeResult) {
-      revokeResult.innerHTML = '';
-    }
-    fetch(`${BASE_PATH}/api.php?f=revokeAccess`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-Token': CSRF_TOKEN,
-      },
-      body: JSON.stringify({user_id: uid})
-    })
-      .then(resp => resp.json())
-      .then(data => {
-        const cls = data.status ? 'alert-success' : 'alert-danger';
-        if (revokeResult) {
-          revokeResult.innerHTML = `<div class="alert ${cls}" role="alert">${data.message || 'Done.'}</div>`;
-        }
-        if (data.status) {
-          setTimeout(() => window.location.reload(), 600);
-        }
-      })
-      .catch(() => {
-        if (revokeResult) {
-          revokeResult.innerHTML = '<div class="alert alert-danger" role="alert">Revoke request failed.</div>';
-        }
-      });
-  });
-});
-</script>
 <?php include view_path('footer'); ?>

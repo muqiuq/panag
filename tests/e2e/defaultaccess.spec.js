@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { resetMock, mockState } = require('./utils/mock');
+const { toasts } = require('./utils/ui');
 
 const DEFAULT_NET = '10.10.0.0/24';
 
@@ -9,7 +10,7 @@ test('grant default access creates the address-list entry on the router', async 
   await page.goto('/index.php');
   await page.getByRole('button', { name: 'Grant default access' }).click();
 
-  await expect(page.getByRole('alert')).toContainText('Default access granted');
+  await expect(toasts(page)).toContainText('Default access granted');
   await expect(page.locator('#currentAccessContainer').getByText(DEFAULT_NET)).toBeVisible();
 
   const state = await mockState();

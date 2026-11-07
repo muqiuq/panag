@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { USERS } = require('./utils/users');
 const { resetMock, addRouterEntry, remainingOnRouter, mockState } = require('./utils/mock');
+const { toasts } = require('./utils/ui');
 
 test.beforeEach(async () => { await resetMock(); });
 
@@ -22,7 +23,7 @@ test.describe('own durations (regular user)', () => {
     await page.goto('/index.php');
     await expect(page.getByText('for 2 h')).toBeVisible();
     await page.getByRole('button', { name: 'Grant default access' }).click();
-    await expect(page.locator('#defaultAccessResult').getByRole('alert')).toContainText('Default access granted until');
+    await expect(toasts(page)).toContainText('Default access granted until');
     const remaining = await remainingOnRouter('10.10.0.0/24');
     expect(remaining).toBeGreaterThan(7100);
     expect(remaining).toBeLessThanOrEqual(7200);
@@ -68,14 +69,15 @@ test.describe('active entries (admin)', () => {
     await addRouterEntry('Whitelist 127.0.0.1', '172.16.0.0/24', 'PANAG ext: VPN', '00:10:00');
     await page.goto('/index.php');
     await page.getByRole('button', { name: 'Grant default access' }).click();
-    const list = page.locator('#currentAccessContainer');
-    const office = list.locator('li').filter({ hasText: 'Office LAN' });
+    const rows = page.locator('#activeAccessTable tbody tr');
+    const office = rows.filter({ hasText: 'Office LAN' });
     await expect(office).toContainText('Default');
-    await expect(office).toContainText(/1 h left · until \d\d:\d\d/);
-    await expect(list.locator('li').filter({ hasText: 'VPN' })).toContainText('Extended');
+    await expect(office).toContainText('1 h left');
+    await expect(office.locator('td').nth(4)).toHaveText(/^\d\d:\d\d$/);
+    await expect(rows.filter({ hasText: 'VPN' })).toContainText('Extended');
 
     await page.getByRole('button', { name: 'Revoke Office LAN' }).click();
-    await expect(page.locator('#currentAccessResult').getByRole('alert')).toContainText('revoked');
+    await expect(toasts(page)).toContainText('revoked');
     await expect(office).toHaveCount(0);
     const state = await mockState();
     expect(state.entries.map((e) => e.address)).toEqual(['172.16.0.0/24']);
@@ -85,7 +87,7 @@ test.describe('active entries (admin)', () => {
     await addRouterEntry('Whitelist 127.0.0.1', '172.16.0.0/24', 'PANAG ext: VPN', '00:02:00');
     await page.goto('/index.php');
     await page.getByRole('button', { name: 'Extend VPN' }).click();
-    await expect(page.locator('#currentAccessResult').getByRole('alert')).toContainText('Extended until');
+    await expect(toasts(page)).toContainText('Extended until');
     const remaining = await remainingOnRouter('172.16.0.0/24');
     expect(remaining).toBeGreaterThan(880); // admin's extended duration: 15 min
   });
@@ -94,16 +96,16 @@ test.describe('active entries (admin)', () => {
     await addRouterEntry('Whitelist 127.0.0.1', '10.10.0.0/24', 'PANAG default: Office LAN', '05:00:00');
     await page.goto('/index.php');
     await page.getByRole('button', { name: 'Grant default access' }).click();
-    await expect(page.locator('#defaultAccessResult').getByRole('alert')).toContainText('Default access granted');
+    await expect(toasts(page)).toContainText('Default access granted');
     expect(await remainingOnRouter('10.10.0.0/24')).toBeGreaterThan(4 * 3600);
   });
 
   test('expired entries disappear', async ({ page }) => {
     await addRouterEntry('Whitelist 127.0.0.1', '172.16.0.0/24', 'PANAG ext: VPN', '2s');
     await page.goto('/index.php');
-    await expect(page.locator('#currentAccessContainer')).toContainText('VPN');
+    await expect(page.locator('#activeAccessTable')).toContainText('VPN');
     await page.waitForTimeout(2500);
     await page.reload();
-    await expect(page.locator('#currentAccessContainer')).toContainText('No active address list entries.');
+    await expect(page.locator('#activeAccessTable')).toContainText('No active address list entries.');
   });
 });

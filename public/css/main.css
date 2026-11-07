@@ -1,3 +1,8 @@
+/* Bootstrap's display utilities (.d-flex etc., also !important) come after its [hidden] rule and would win. */
+[hidden] {
+    display: none !important;
+}
+
 html, body {
     height: 100%;
 }
@@ -28,27 +33,216 @@ footer {
 }
 
 .navbar-dark .nav-link:hover,
-.navbar-dark .nav-link:focus {
+.navbar-dark .nav-link:focus,
+.navbar-dark .nav-link.active {
     color: #ffe5e5 !important;
+    text-decoration: underline;
+    text-underline-offset: 0.3em;
 }
 
-.spinner-overlay {
+.palette-open-btn kbd {
+    background: rgba(255, 255, 255, 0.2);
+    color: inherit;
+    padding: 0 0.35em;
+}
+
+/* --- layout helpers (replace inline styles; the CSP forbids them) --- */
+.col-icon { width: 3rem; }
+.col-narrow { width: 7rem; }
+.col-time { width: 9rem; }
+.col-toggle { width: 5.5rem; }
+.col-key { max-width: 14rem; }
+.dev-ip-input { width: 11rem; }
+
+.stat-tile {
+    padding: 1rem;
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    background: var(--bs-tertiary-bg);
+}
+
+.login-column { max-width: 420px; }
+.login-hero { max-width: 280px; width: 100%; margin: 0 auto; }
+.login-hero-img { max-width: 280px; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: contain; }
+.nothing-here { font-size: 1.1rem; }
+.nothing-here-icon { font-size: 3rem; line-height: 1; }
+
+.otp-qr img { max-width: 100%; height: auto; }
+
+/* Rows hidden by a table filter (data-table-filter) or because the network is above the user's level. */
+.filtered-out { display: none; }
+.network-locked td, .network-locked th { color: var(--bs-secondary-color); }
+
+/* Busy buttons: spinner instead of the old full-screen overlay. */
+.is-busy { position: relative; color: transparent !important; pointer-events: none; }
+.is-busy::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 1rem;
+    height: 1rem;
+    border: 0.15em solid var(--bs-secondary-color);
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: panag-spin 0.75s linear infinite;
+}
+@keyframes panag-spin { to { transform: rotate(360deg); } }
+
+/* --- toasts (Panag.toast) --- */
+.toast-area {
     position: fixed;
-    top: 0;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 2100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: min(26rem, calc(100vw - 2rem));
+}
+.toast-area .toast { width: auto; }
+
+/* --- sortable tables (table-sort.js; server-sorted audit log uses the same look) --- */
+.sort-btn {
+    all: unset;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: inherit;
+    color: inherit;
+    text-decoration: none;
+}
+.sort-btn:hover { text-decoration: underline; }
+.sort-btn:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: 2px; border-radius: 2px; }
+.sort-btn::after {
+    content: "↕";
+    font-size: 0.8em;
+    opacity: 0.35;
+}
+th[aria-sort="ascending"] .sort-btn::after { content: "▲"; opacity: 0.9; }
+th[aria-sort="descending"] .sort-btn::after { content: "▼"; opacity: 0.9; }
+
+/* --- command palette (palette.js) --- */
+.palette-inline { position: relative; }
+.palette-list {
+    max-height: 22rem;
+    overflow-y: auto;
+}
+.palette-popup {
+    position: absolute;
+    z-index: 1050;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.35);
-    display: none;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    background: var(--bs-body-bg);
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    box-shadow: var(--bs-box-shadow);
+    padding: 0.25rem;
+}
+.palette-option {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.25rem 1rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--bs-border-radius);
+    cursor: pointer;
+}
+.palette-option.active {
+    background: var(--bs-primary-bg-subtle);
+    outline: 2px solid var(--bs-primary);
+    outline-offset: -2px;
+}
+.palette-label { font-weight: 600; }
+.palette-sub { font-size: 0.85em; }
+.palette-meta { display: flex; gap: 0.75rem; align-items: center; font-size: 0.875em; }
+.palette-status { color: var(--bs-success-text-emphasis); }
+.palette-hint { color: var(--bs-secondary-color); }
+.palette-empty { padding: 0.5rem 0.75rem; color: var(--bs-secondary-color); }
+.palette-error { padding: 0.5rem 0.75rem 0; color: var(--bs-danger-text-emphasis); }
+.palette-inline .palette-empty {
+    position: absolute;
+    z-index: 1050;
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.25rem);
+    background: var(--bs-body-bg);
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+}
+.palette-list.is-running { opacity: 0.6; pointer-events: none; }
+
+.palette-dialog {
+    width: min(40rem, calc(100vw - 2rem));
+    margin-top: 12vh;
+    padding: 0;
+    border: 0;
+    border-radius: var(--bs-border-radius-lg);
+    box-shadow: var(--bs-box-shadow-lg);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+.palette-dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+.palette-box { padding: 0.75rem; }
+.palette-box .palette-list { margin-top: 0.5rem; }
+.palette-footer { margin-top: 0.5rem; font-size: 0.8rem; color: var(--bs-secondary-color); }
+
+@media (prefers-reduced-motion: reduce) {
+    .is-busy::after { animation-duration: 2s; }
+}
+
+/* --- default networks matrix (admin/matrix.php) --- */
+.matrix-wrap {
+    overflow: auto;
+    max-height: 75vh;
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+}
+.matrix { border-collapse: separate; border-spacing: 0; }
+.matrix thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bs-body-bg);
+    vertical-align: bottom;
+}
+.matrix .matrix-user, .matrix .matrix-corner {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background: var(--bs-body-bg);
+    min-width: 11rem;
+}
+.matrix thead .matrix-corner { z-index: 3; }
+.matrix-net { min-width: 6.5rem; text-align: center; font-size: 0.85rem; }
+/* height: 1px lets the button's height: 100% fill the whole (taller) table cell */
+.matrix-cell { text-align: center; padding: 0 !important; height: 1px; }
+.matrix-toggle {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 2000;
+    width: 100%;
+    height: 100%;
+    min-height: 2.25rem;
+    cursor: pointer;
+    font-weight: 700;
 }
-
-.spinner-overlay.active {
-    display: flex;
+.matrix-toggle:hover:not(:disabled) { background: var(--bs-primary-bg-subtle); }
+.matrix-toggle:focus-visible { outline: 2px solid var(--bs-primary); outline-offset: -2px; }
+.matrix-toggle[aria-pressed="true"] { background: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); }
+.matrix-toggle.is-invalid { background: var(--bs-warning-bg-subtle); color: var(--bs-warning-text-emphasis); }
+.matrix-toggle:disabled { cursor: not-allowed; color: var(--bs-secondary-color); background: var(--bs-tertiary-bg); }
+.matrix-legend {
+    display: inline-block;
+    min-width: 1.4rem;
+    text-align: center;
+    font-weight: 700;
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-sm);
 }
-
-.card-warning {
-    border-left: 4px solid #ffc107;
-}
+.matrix-legend-invalid { background: var(--bs-warning-bg-subtle); }
