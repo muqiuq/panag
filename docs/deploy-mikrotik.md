@@ -109,7 +109,7 @@ Download `panag-<version>-armv7.tar` or `panag-<version>-arm64.tar` from the Git
 (or build it with `./run.sh export arm64`), upload it to `usb1/`, then:
 
 ```routeros
-/container add file=usb1/panag-V0.1-arm64.tar interface=veth-panag envlist=panag \
+/container add file=usb1/panag-V0.2-arm64.tar interface=veth-panag envlist=panag \
     mounts=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 

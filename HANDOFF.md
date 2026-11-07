@@ -53,7 +53,7 @@ Gewünscht (vom User):
 | `189b31c` | 2 – Freigabezeiten | Dauern pro User (15 min–14 h / 15 min–12 h, Server-Validierung 422); Verlängern ohne Kürzen; Extend/Revoke pro Eintrag; JS nach `public/js/` (nur `textContent`) |
 | „Phase 3: …“ | 3 – Bedienung | Kommandofeld (`/`, Ctrl/Cmd+K, IP-Suche, `vpn 2h`); Admin-Seiten `users`/`user` (Tabs)/`networks`/`matrix`; Default-Netze überall nur ≤ Level (auch Admins); OTP-Secret nur nach „Reveal“ (geloggt); alle Tabellen sortierbar, Log serverseitig; CSP aktiv |
 
-| (nicht committet) | Security Monitoring | Regeln W1–W7/P1–P8/M1, Alarme mit Bündelung und Cooldown, Mails (SMTP, Digest, „Warst du das?“), GeoIP (DB-IP Lite, MMDB), KI-Triage via OpenRouter, `admin/alerts.php`, `admin/monitoring.php`, Config-Seite mit Herkunft und Secrets; Stand in [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md) Kapitel 18 |
+| `dd8fb66` | Security Monitoring | Regeln W1–W7/P1–P8/M1, Alarme mit Bündelung und Cooldown, Mails (SMTP, Digest, „Warst du das?“), GeoIP (DB-IP Lite, MMDB), KI-Triage via OpenRouter, `admin/alerts.php`, `admin/monitoring.php`, Config-Seite mit Herkunft und Secrets; Stand in [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md) Kapitel 18 |
 
 Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **137 PHPUnit**, **96 E2E**.
 GitHub Actions: Workflow geschrieben und mit `actionlint` geprüft, **aber noch nie auf GitHub gelaufen**.
@@ -162,6 +162,6 @@ git clone git@github.com:muqiuq/panag.git && cd panag
    Noch hart codiert: Navbar `bg-danger`, Badges/Buttons mit Bootstrap-Farbklassen. Der Befehl „Theme: …“
    gehört in `palette_commands()` (`src/palette.php`). Theme-CSS muss ohne Inline-Styles auskommen (CSP).
 5. **Phase 5 – Aufräumen/Doku**, optional RouterOS-CHR-Test in der CI und Trivy.
-6. **Security Monitoring** ist umgesetzt, aber noch **nicht committet** (Wunsch des Users). Offen sind die
+6. **Security Monitoring** ist umgesetzt und committet (`dd8fb66`, Release-Tag `v0.2` lokal). Offen sind die
    Geräteprüfung am hEX S (Peer-Felder, Egress, Scheduler) und ein echter OpenRouter-Testaufruf mit der
    gewählten Provider-Liste, siehe docs/plan-security-monitoring.md, Kapitel 18.
