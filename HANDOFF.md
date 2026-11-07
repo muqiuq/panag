@@ -39,6 +39,7 @@ Gewünscht (vom User):
 | Migrationstest | ohne Produktions-DB; selbst erzeugte Fixture im V0.1-Schema |
 | `status_public.php` | gewollt: jeder eingeloggte User sieht, wer heute eingeloggt war |
 | Commits | direkt auf `main`; GitHub Actions testet der User selbst und meldet Fehler |
+| Push, Branches, Tags | nur auf ausdrückliche Anweisung des Users (siehe `CLAUDE.md`) |
 
 ## 3. Was erledigt ist
 
