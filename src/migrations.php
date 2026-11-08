@@ -42,14 +42,14 @@ function pending_migrations(PDO $pdo): array
 }
 
 /**
- * Apply all pending migrations. Concurrent callers are serialised by BEGIN IMMEDIATE.
+ * Apply all pending migrations (or those up to $target). Concurrent callers are serialised by BEGIN IMMEDIATE.
  * @return list<string> applied migrations
  */
-function migrate(PDO $pdo, ?callable $log = null): array
+function migrate(PDO $pdo, ?callable $log = null, ?int $target = null): array
 {
     $applied = [];
     foreach (available_migrations() as $version => $m) {
-        if ($version <= schema_version($pdo)) {
+        if ($version <= schema_version($pdo) || ($target !== null && $version > $target)) {
             continue;
         }
         $pdo->exec('BEGIN IMMEDIATE');

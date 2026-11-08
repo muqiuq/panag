@@ -1,6 +1,7 @@
 <?php
 // Admin: effective configuration. Everything is set via environment variables (src/config.php); this page only
 // shows it. Secrets are never displayed – only whether they are set and where they come from.
+// Also: backup and restore (users, networks, everything) – the forms post to admin/backup.php.
 require_once __DIR__ . '/../../src/bootstrap.php';
 require_permission('view_config');
 
@@ -54,8 +55,15 @@ $container = [
     ['PHP_DISPLAY_ERRORS', getenv('PHP_DISPLAY_ERRORS'), 'PHP display_errors (docker/php.ini), On only in dev'],
     ['SEED_DEMO', getenv('SEED_DEMO'), 'Insert demo data on start (dev only)'],
 ];
+ensure_session();
+$flash = $_SESSION['config_flash'] ?? null;
+unset($_SESSION['config_flash']);
+$csrf = csrf_token();
 include view_path('header');
 ?>
+<?php if ($flash): ?>
+  <div class="alert alert-<?= e($flash['type']) ?>" role="alert" data-testid="config-flash"><?= e($flash['message']) ?> <a href="#backup" class="alert-link">Backup and restore</a></div>
+<?php endif; ?>
 <div class="card shadow-sm mb-4">
   <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
     <span>Configuration <span class="text-muted small">– set via environment variables, shown read-only</span></span>
@@ -133,6 +141,68 @@ include view_path('header');
         </table>
       </div>
     </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mt-4" id="backup">
+  <div class="card-header">Backup and restore</div>
+  <div class="card-body">
+    <p class="small text-muted">Exports contain the OTP secrets of all users – store them safely. Settings from environment variables and the files in DATA_DIR (GeoIP databases, pseudonym key) are not part of any backup.</p>
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <h2 class="h6">Users</h2>
+        <form method="post" action="<?= e(url_for('admin/backup.php')) ?>" class="mb-2">
+          <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+          <input type="hidden" name="action" value="export_users">
+          <button class="btn btn-sm btn-outline-primary">Export users (JSON)</button>
+        </form>
+        <form method="post" action="<?= e(url_for('admin/backup.php')) ?>" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+          <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+          <input type="hidden" name="action" value="import_users">
+          <input type="file" name="users_file" accept="application/json,.json" class="form-control form-control-sm w-auto flex-grow-1" required aria-label="Users file (JSON)">
+          <button class="btn btn-sm btn-outline-success" type="submit">Import users</button>
+        </form>
+        <p class="small text-muted mt-1 mb-0">Adds users whose user IP is not present yet; existing user IPs are skipped. New users have no default networks.</p>
+      </div>
+      <div class="col-lg-6">
+        <h2 class="h6">Networks</h2>
+        <form method="post" action="<?= e(url_for('admin/backup.php')) ?>" class="mb-2">
+          <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+          <input type="hidden" name="action" value="export_networks">
+          <button class="btn btn-sm btn-outline-primary">Export networks (JSON)</button>
+        </form>
+        <form method="post" action="<?= e(url_for('admin/backup.php')) ?>" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+          <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+          <input type="hidden" name="action" value="import_networks">
+          <input type="file" name="network_file" accept="application/json,.json" class="form-control form-control-sm w-auto flex-grow-1" required aria-label="Networks file (JSON)">
+          <select name="import_mode" class="form-select form-select-sm w-auto" aria-label="Network import mode">
+            <option value="replace">Replace</option>
+            <option value="append">Append</option>
+          </select>
+          <button class="btn btn-sm btn-outline-success" type="submit">Import networks</button>
+        </form>
+        <p class="small text-muted mt-1 mb-0">Replace overwrites all networks (and their default assignments); Append adds to the list.</p>
+      </div>
+    </div>
+    <hr class="my-4">
+    <h2 class="h6">Everything</h2>
+    <p class="small mb-2">One file with all data: users, networks, default networks, settings, status messages, audit log, monitoring data and alerts.</p>
+    <form method="post" action="<?= e(url_for('admin/backup.php')) ?>" class="mb-3">
+      <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+      <input type="hidden" name="action" value="export_full">
+      <button class="btn btn-sm btn-primary">Download full backup</button>
+    </form>
+    <form method="post" action="<?= e(url_for('admin/backup.php')) ?>" enctype="multipart/form-data" class="border border-danger-subtle rounded p-3" data-testid="restore-form">
+      <input type="hidden" name="csrf_token" value="<?= e($csrf) ?>">
+      <input type="hidden" name="action" value="restore_full">
+      <p class="small mb-2"><strong>Restore replaces all current data</strong> with the backup. A copy of the current database is saved in <code>DATA_DIR/backups</code> first. Older backups are migrated to the current schema. If your own account is not in the backup, you are logged out.</p>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <input type="file" name="backup_file" accept="application/json,.json" class="form-control form-control-sm w-auto flex-grow-1" required aria-label="Full backup file (JSON)">
+        <label class="visually-hidden" for="restore-confirm">Type RESTORE to confirm</label>
+        <input type="text" id="restore-confirm" name="confirm" class="form-control form-control-sm w-auto" placeholder="Type RESTORE" autocomplete="off" required pattern="RESTORE">
+        <button class="btn btn-sm btn-danger" type="submit">Restore everything</button>
+      </div>
+    </form>
   </div>
 </div>
 <?php include view_path('footer');

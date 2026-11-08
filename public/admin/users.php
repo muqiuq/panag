@@ -1,8 +1,7 @@
 <?php
-// Admin: user list (sortable, filterable), add user, backup. Editing happens on admin/user.php.
+// Admin: user list (sortable, filterable), add user. Editing happens on admin/user.php; backups on admin/config.php.
 // OTP secrets are never part of this page – they are shown on the user page after "Reveal" only.
 require_once __DIR__ . '/../../src/bootstrap.php';
-require_once __DIR__ . '/../../src/backup.php';
 require_permission('manage_users');
 
 ensure_session();
@@ -45,33 +44,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             start_impersonation($admin, $target);
             header('Location: ' . url_for('index.php'));
             exit;
-        }
-    } elseif ($action === 'export_users') {
-        header('Content-Type: application/json');
-        header('Content-Disposition: attachment; filename="users.json"');
-        echo export_users_json();
-        exit;
-    } elseif ($action === 'import_users') {
-        $json = '';
-        if (isset($_FILES['users_file']) && is_uploaded_file($_FILES['users_file']['tmp_name'])) {
-            $json = (string)file_get_contents($_FILES['users_file']['tmp_name']);
-        }
-        if ($json === '') {
-            $_SESSION['user_flash'] = ['type' => 'danger', 'message' => 'No file uploaded.'];
-        } else {
-            try {
-                $result = import_users_json($json);
-                $message = 'Imported ' . (int)$result['imported'] . ' new user(s).';
-                if ($result['skipped_existing'] > 0) {
-                    $message .= ' Skipped ' . (int)$result['skipped_existing'] . ' existing user_ip(s).';
-                }
-                if ($result['skipped_duplicate'] > 0) {
-                    $message .= ' Skipped ' . (int)$result['skipped_duplicate'] . ' duplicate user_ip(s) in file.';
-                }
-                $_SESSION['user_flash'] = ['type' => 'success', 'message' => $message];
-            } catch (Throwable $e) {
-                $_SESSION['user_flash'] = ['type' => 'danger', 'message' => 'Import failed: ' . $e->getMessage()];
-            }
         }
     }
     if (!$formErrors) {
@@ -195,33 +167,5 @@ include view_path('header');
   </div>
 </div>
 
-<div class="card shadow-sm mb-4">
-  <div class="card-header">Backup users</div>
-  <div class="card-body">
-    <div class="mb-3">
-      <h2 class="h6 mb-2">Export</h2>
-      <form method="post" class="d-inline">
-        <input type="hidden" name="action" value="export_users">
-        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-        <button class="btn btn-outline-primary">Export users (JSON)</button>
-      </form>
-      <p class="text-muted small mt-2 mb-0">The export contains the OTP secrets – store it safely.</p>
-    </div>
-    <hr class="my-3">
-    <div>
-      <h2 class="h6 mb-2">Import</h2>
-      <form method="post" enctype="multipart/form-data" class="row g-2 align-items-center">
-        <input type="hidden" name="action" value="import_users">
-        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-        <div class="col-sm-7 col-md-6">
-          <input type="file" name="users_file" accept="application/json" class="form-control" required aria-label="Users file (JSON)">
-        </div>
-        <div class="col-sm-3 col-md-3">
-          <button class="btn btn-outline-success w-100" type="submit">Import</button>
-        </div>
-      </form>
-      <p class="text-muted small mt-2 mb-0">Import adds users whose user_ip is not already present; existing user_ips are skipped. New users have no default networks.</p>
-    </div>
-  </div>
-</div>
+<p class="small text-muted">Export and import of users, and the full backup: <a href="<?= e(url_for('admin/config.php')) ?>#backup">Config → Backup and restore</a>.</p>
 <?php include view_path('footer'); ?>

@@ -2,7 +2,6 @@
 // Admin: networks (sortable table). Add/edit in a dialog; "Default for N users" opens the reverse view of
 // the default networks (all users eligible for the network, saved immediately). JS: public/js/networks.js
 require_once __DIR__ . '/../../src/bootstrap.php';
-require_once __DIR__ . '/../../src/backup.php';
 require_permission('manage_networks');
 
 ensure_session();
@@ -44,26 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $back('success', 'Network ' . $network['name'] . ' deleted.');
         }
         $back('danger', 'Network not found.');
-    } elseif ($action === 'export') {
-        header('Content-Type: application/json');
-        header('Content-Disposition: attachment; filename="networks.json"');
-        echo export_networks_json();
-        exit;
-    } elseif ($action === 'import') {
-        $json = '';
-        if (isset($_FILES['network_file']) && is_uploaded_file($_FILES['network_file']['tmp_name'])) {
-            $json = (string)file_get_contents($_FILES['network_file']['tmp_name']);
-        }
-        if ($json === '') {
-            $back('danger', 'No file uploaded.');
-        }
-        try {
-            $replace = ($_POST['import_mode'] ?? 'replace') !== 'append';
-            $count = import_networks_json($json, $replace);
-            $back('success', ($replace ? 'Replaced' : 'Appended') . ' ' . $count . ' network(s).');
-        } catch (Throwable $e) {
-            $back('danger', 'Import failed: ' . $e->getMessage());
-        }
     }
     $back('danger', 'Unknown action.');
 }
@@ -138,40 +117,7 @@ include view_path('header');
   </div>
 </div>
 
-<div class="card shadow-sm mb-4">
-  <div class="card-header">Backup</div>
-  <div class="card-body">
-    <div class="mb-3">
-      <h2 class="h6 mb-2">Export</h2>
-      <form method="post" class="d-inline">
-        <input type="hidden" name="action" value="export">
-        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-        <button class="btn btn-outline-primary">Export networks (JSON)</button>
-      </form>
-    </div>
-    <hr class="my-3">
-    <div>
-      <h2 class="h6 mb-2">Import</h2>
-      <form method="post" enctype="multipart/form-data" class="row g-2 align-items-center">
-        <input type="hidden" name="action" value="import">
-        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-        <div class="col-sm-6 col-md-5">
-          <input type="file" name="network_file" accept="application/json" class="form-control" required aria-label="Networks file (JSON)">
-        </div>
-        <div class="col-sm-3 col-md-3">
-          <select name="import_mode" class="form-select" aria-label="Import mode">
-            <option value="replace">Replace</option>
-            <option value="append">Append</option>
-          </select>
-        </div>
-        <div class="col-sm-3 col-md-2">
-          <button class="btn btn-outline-success w-100" type="submit">Import</button>
-        </div>
-      </form>
-      <p class="text-muted small mt-2 mb-0">Replace overwrites all networks (and their default assignments); Append adds to the existing list.</p>
-    </div>
-  </div>
-</div>
+<p class="small text-muted">Export and import of networks, and the full backup: <a href="<?= e(url_for('admin/config.php')) ?>#backup">Config → Backup and restore</a>.</p>
 
 <div class="modal fade" id="networkModal" tabindex="-1" aria-labelledby="networkModalTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
