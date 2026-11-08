@@ -59,10 +59,10 @@ Gewünscht (vom User):
 | `a942879` | 6 – Wünsche | Netze „sensitive“: nie Default-Netz, nur Einzelfreigabe (Migration 005) |
 | `e69dc3e` | 6 – Wünsche | Statusmeldung pro User bis 03:00 (Migration 006), sichtbar für alle |
 | `56b809e` | 6 – Wünsche | Backups auf der Config-Seite, Gesamt-Backup und -Restore aller Tabellen |
-| „Detection rules: …“ | 6 – Wünsche | Erkennungsregeln im Web-UI: an/aus, Schwere, Schwellen (`admin/rules.php`) |
+| `fed85c4` | 6 – Wünsche | Erkennungsregeln im Web-UI: an/aus, Schwere, Schwellen (`admin/rules.php`) |
 | `dd8fb66` | Security Monitoring | Regeln W1–W7/P1–P8/M1, Alarme mit Bündelung und Cooldown, Mails (SMTP, Digest, „Warst du das?“), GeoIP (DB-IP Lite, MMDB), KI-Triage via OpenRouter, `admin/alerts.php`, `admin/monitoring.php`, Config-Seite mit Herkunft und Secrets; Stand in [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md) Kapitel 18 |
 
-Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **144 PHPUnit**, **114 E2E**.
+Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **171 PHPUnit**, **122 E2E**.
 GitHub Actions: Workflow geschrieben und mit `actionlint` geprüft, **aber noch nie auf GitHub gelaufen**.
 
 ### Unterwegs gefundene und behobene Bugs (wichtig für Produktion)
