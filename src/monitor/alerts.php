@@ -10,6 +10,68 @@ const ALERT_STATUSES = [
     'resolved' => 'Resolved',
 ];
 
+const ALERTS_PER_PAGE = 50;
+
+/** Sortable columns of the alert list (key => SQL); sorting happens on the server because the list is paginated. */
+const ALERT_SORT_COLUMNS = [
+    'time' => 'created_at',
+    'severity' => "CASE severity WHEN 'low' THEN 1 WHEN 'medium' THEN 2 WHEN 'high' THEN 3 WHEN 'critical' THEN 4 ELSE 0 END",
+    'user' => "COALESCE(user_label, 'system') COLLATE NOCASE",
+    'rules' => 'rules',
+    'status' => 'status',
+];
+
+/** @return array{key: string, dir: string, sql: string} */
+function alerts_order(?string $sort, ?string $dir): array
+{
+    $key = isset(ALERT_SORT_COLUMNS[(string)$sort]) ? (string)$sort : 'time';
+    $dir = strtolower((string)$dir);
+    if ($dir !== 'asc' && $dir !== 'desc') {
+        $dir = in_array($key, ['time', 'severity'], true) ? 'desc' : 'asc';
+    }
+    $sqlDir = strtoupper($dir);
+    // id as tie-breaker keeps pages stable
+    return ['key' => $key, 'dir' => $dir, 'sql' => 'ORDER BY ' . ALERT_SORT_COLUMNS[$key] . " {$sqlDir}, id {$sqlDir}"];
+}
+
+/**
+ * One page of alerts. $status: 'active' (open + acknowledged), 'all' or a key of ALERT_STATUSES. $search matches
+ * summary, user and rule codes.
+ * @param array{key: string, dir: string, sql: string} $order
+ * @return array{rows: list<array<string, mixed>>, total: int, page: int, pages: int}
+ */
+function alert_list(string $status, string $search, array $order, int $page, int $perPage = ALERTS_PER_PAGE): array
+{
+    $where = [];
+    $params = [];
+    if ($status === 'all') {
+        // no status condition
+    } elseif (isset(ALERT_STATUSES[$status])) {
+        $where[] = 'status = :status';
+        $params[':status'] = $status;
+    } else {
+        $where[] = "status IN ('open', 'acknowledged')";
+    }
+    if ($search !== '') {
+        $where[] = "(summary LIKE :q ESCAPE '\\' OR COALESCE(user_label, 'system') LIKE :q ESCAPE '\\' OR rules LIKE :q ESCAPE '\\')";
+        $params[':q'] = '%' . addcslashes($search, '%_\\') . '%';
+    }
+    $sqlWhere = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+    $count = db()->prepare('SELECT COUNT(*) FROM alerts ' . $sqlWhere);
+    $count->execute($params);
+    $total = (int)$count->fetchColumn();
+    $pages = max(1, (int)ceil($total / $perPage));
+    $page = min(max(1, $page), $pages);
+    $stmt = db()->prepare('SELECT * FROM alerts ' . $sqlWhere . ' ' . $order['sql'] . ' LIMIT :limit OFFSET :offset');
+    foreach ($params as $k => $v) {
+        $stmt->bindValue($k, $v);
+    }
+    $stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', ($page - 1) * $perPage, PDO::PARAM_INT);
+    $stmt->execute();
+    return ['rows' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'pages' => $pages];
+}
+
 function alert_key_recent(string $key, int $since): bool
 {
     $stmt = db()->prepare('SELECT 1 FROM alert_keys WHERE dedupe_key = :k AND created_at >= :t LIMIT 1');

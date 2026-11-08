@@ -75,6 +75,14 @@ test('foreign hosting endpoint: alert with AI assessment, mails, and "That was m
   const row = page.locator('#alertsTable tbody tr').filter({ hasText: user.name });
   await expect(row).toContainText('high');
   await expect(row).toContainText('W2, W3, W4');
+  // server-side search and sorting (the list is paginated)
+  await page.getByLabel('Search alerts').fill(user.name);
+  await page.getByRole('button', { name: 'Show' }).click();
+  await expect(page.locator('#alertsTable tbody tr')).toHaveCount(1);
+  await expect(page.getByTestId('alerts-count')).toContainText('1 · page 1 of 1');
+  await page.locator('#alertsTable thead').getByRole('link', { name: 'Severity' }).click();
+  await expect(page).toHaveURL(/sort=severity/);
+  await expect(page.getByLabel('Search alerts')).toHaveValue(user.name);
   await row.getByRole('link').first().click();
   await expect(page.getByText(/outside the allowed countries/)).toBeVisible();
   await expect(page.getByTestId('ai-assessment')).toContainText('Mock assessment');

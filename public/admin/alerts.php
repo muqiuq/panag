@@ -179,20 +179,32 @@ include view_path('header');
     </div>
   </div>
 <?php else:
-  $where = ['active' => "status IN ('open', 'acknowledged')", 'all' => '1=1'][$statusFilter] ?? (isset(ALERT_STATUSES[$statusFilter]) ? 'status = ' . db()->quote($statusFilter) : "status IN ('open', 'acknowledged')");
-  $alerts = db()->query('SELECT * FROM alerts WHERE ' . $where . ' ORDER BY id DESC LIMIT 500')->fetchAll(PDO::FETCH_ASSOC);
+  $search = trim((string)($_GET['q'] ?? ''));
+  $order = alerts_order(isset($_GET['sort']) ? (string)$_GET['sort'] : null, isset($_GET['dir']) ? (string)$_GET['dir'] : null);
+  $list = alert_list($statusFilter, $search, $order, (int)($_GET['page'] ?? 1));
+  $alerts = $list['rows'];
+  $query = ['status' => $statusFilter, 'q' => $search];
+  $pagination = [
+      'page' => $list['page'],
+      'pages' => $list['pages'],
+      'link' => fn(int $p) => '?' . http_build_query($query + ['sort' => $order['key'], 'dir' => $order['dir'], 'page' => $p]),
+      'label' => 'Alerts pagination',
+  ];
+  $header = fn(string $label, string $key) => sort_header_cell($label, $key, $order['key'], $order['dir'], $query);
 ?>
   <div class="card shadow-sm">
     <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-      <span>Security alerts</span>
-      <form method="get" class="d-flex gap-2">
-        <select name="status" class="form-select form-select-sm" aria-label="Status filter">
+      <span>Security alerts <span class="text-muted small" data-testid="alerts-count"><?= $list['total'] ?> · page <?= $list['page'] ?> of <?= $list['pages'] ?></span></span>
+      <form method="get" class="d-flex flex-wrap gap-2" role="search">
+        <select name="status" class="form-select form-select-sm w-auto" aria-label="Status filter">
           <?php foreach (['active' => 'Open + acknowledged', 'all' => 'All'] + ALERT_STATUSES as $key => $label): ?>
             <option value="<?= e($key) ?>" <?= $statusFilter === $key ? 'selected' : '' ?>><?= e($label) ?></option>
           <?php endforeach; ?>
         </select>
+        <input type="search" name="q" value="<?= e($search) ?>" class="form-control form-control-sm w-auto" placeholder="User, rule or text" aria-label="Search alerts">
+        <input type="hidden" name="sort" value="<?= e($order['key']) ?>">
+        <input type="hidden" name="dir" value="<?= e($order['dir']) ?>">
         <button class="btn btn-sm btn-outline-secondary">Show</button>
-        <input type="search" class="form-control form-control-sm w-auto" placeholder="Filter" aria-label="Filter alerts" data-table-filter="alertsTable">
       </form>
     </div>
     <div class="card-body">
@@ -200,18 +212,18 @@ include view_path('header');
         <p class="text-muted">Monitoring is off (<code>MONITOR_ENABLED=false</code>).</p>
       <?php endif; ?>
       <div class="table-responsive">
-        <table class="table table-sm align-middle mb-0" id="alertsTable" data-sortable>
+        <table class="table table-sm align-middle mb-0" id="alertsTable" data-server-sorted>
           <thead>
-            <tr><th data-sort="number">Time</th><th data-sort="number">Severity</th><th>User</th><th>Rules <a href="#rules" class="small fw-normal">(what?)</a></th><th>Summary</th><th>Status</th><th>Mail</th></tr>
+            <tr><?= $header('Time', 'time') ?><?= $header('Severity', 'severity') ?><?= $header('User', 'user') ?><th>Rules <a href="#rules" class="small fw-normal">(what?)</a></th><th>Summary</th><?= $header('Status', 'status') ?><th>Mail</th></tr>
           </thead>
           <tbody>
             <?php if (!$alerts): ?>
-              <tr><td colspan="7" class="text-muted">No alerts.</td></tr>
+              <tr><td colspan="7" class="text-muted"><?= $search !== '' ? 'No alerts match “' . e($search) . '”.' : 'No alerts.' ?></td></tr>
             <?php endif; ?>
             <?php foreach ($alerts as $a): ?>
               <tr>
-                <td class="text-nowrap" data-sort-value="<?= (int)$a['created_at'] ?>"><a href="?id=<?= (int)$a['id'] ?>"><?= e(date('Y-m-d H:i', (int)$a['created_at'])) ?></a></td>
-                <td data-sort-value="<?= severity_rank((string)$a['severity']) ?>"><span class="badge <?= severity_badge_class((string)$a['severity']) ?>"><?= e($a['severity']) ?></span></td>
+                <td class="text-nowrap"><a href="?id=<?= (int)$a['id'] ?>"><?= e(date('Y-m-d H:i', (int)$a['created_at'])) ?></a></td>
+                <td><span class="badge <?= severity_badge_class((string)$a['severity']) ?>"><?= e($a['severity']) ?></span></td>
                 <td><?= e($a['user_label'] ?? 'system') ?></td>
                 <td class="text-nowrap"><?php foreach (array_values(array_filter(explode(',', (string)$a['rules']))) as $i => $code): ?><?= $i ? ', ' : '' ?><a href="#rule-<?= e($code) ?>" title="<?= e(MONITOR_RULES[$code] ?? $code) ?>"><code><?= e($code) ?></code></a><?php endforeach; ?></td>
                 <td><a href="?id=<?= (int)$a['id'] ?>" class="link-body-emphasis"><?= e($a['summary']) ?></a><?= $a['user_response'] === 'not_me' ? ' <span class="badge text-bg-danger">not me</span>' : '' ?></td>
@@ -222,6 +234,7 @@ include view_path('header');
           </tbody>
         </table>
       </div>
+      <?php include view_path('partials/pagination'); ?>
     </div>
   </div>
   <div class="card shadow-sm mt-4" id="rules">

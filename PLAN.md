@@ -439,6 +439,18 @@ Semantische Klassen, 8 Theme-Dateien, Auswahl im Profil und im Kommandofeld, The
 - Bootstrap auf der Login-Seite lokal einbinden.
 - Optional: Stufe 3 (CHR) und Trivy.
 
+### Phase 6 – Wünsche vom 2026-11-08 (Aufwand L)
+Vom User nachgeschoben, umgesetzt in dieser Reihenfolge, je ein Commit:
+
+| # | Wunsch | Stand |
+|---|--------|-------|
+| 1 | Themes SUSE Linux, Windows 95, Windows XP, Ubuntu, Amiga | ✓ (siehe Phase 4) |
+| 2 | Paginierung der Alarme | ✓ 50 pro Seite; Sortierung (Zeit, Schwere, User, Status) und Suche (User, Regel, Text) laufen serverseitig wie beim Audit-Log, Statusfilter als gebundener Parameter. Gemeinsames Partial `views/partials/pagination.php` (auch fürs Audit-Log). |
+| 3 | Netze als „sensitive“ markieren: nie Default-Netz | offen |
+| 4 | Statusmeldung pro User, gültig bis 03:00 | offen |
+| 5 | Backups auf die Config-Seite, Gesamt-Backup und -Restore | offen |
+| 6 | Erkennungsregeln im Web-UI konfigurierbar | offen |
+
 ---
 
 ## 7. Teststrategie

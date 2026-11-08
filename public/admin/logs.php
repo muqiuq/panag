@@ -68,17 +68,7 @@ include view_path('header');
       </div>
     </form>
 
-    <nav aria-label="Audit log pagination" class="mb-3">
-      <ul class="pagination mb-0">
-        <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
-          <a class="page-link" href="<?= e($pageLink(max(1, $page - 1))) ?>" aria-label="Previous">&laquo;</a>
-        </li>
-        <li class="page-item disabled"><span class="page-link">Page <?= $page ?> / <?= $totalPages ?></span></li>
-        <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
-          <a class="page-link" href="<?= e($pageLink(min($totalPages, $page + 1))) ?>" aria-label="Next">&raquo;</a>
-        </li>
-      </ul>
-    </nav>
+    <?php $pagination = ['page' => $page, 'pages' => $totalPages, 'link' => $pageLink, 'label' => 'Audit log pagination']; include view_path('partials/pagination'); ?>
 
     <div class="table-responsive">
       <table class="table table-sm align-middle" id="auditLogTable" data-server-sorted>
