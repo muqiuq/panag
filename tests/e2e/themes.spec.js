@@ -19,6 +19,11 @@ const THEMES = {
   brasil: { label: 'Brasil', dark: false },
   'atomic-age': { label: 'Atomic age', dark: false },
   wtf: { label: 'WTF', dark: false },
+  suse: { label: 'SUSE Linux', dark: false },
+  win95: { label: 'Windows 95', dark: false },
+  winxp: { label: 'Windows XP', dark: false },
+  ubuntu: { label: 'Ubuntu', dark: false },
+  amiga: { label: 'Amiga', dark: true },
 };
 const ADMIN_STATE = 'tests/e2e/.auth/admin.json';
 

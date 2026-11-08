@@ -14,6 +14,11 @@ const THEMES = [
     'brasil' => ['label' => 'Brasil', 'description' => 'Verde, amarelo e azul – green, yellow and blue', 'dark' => false],
     'atomic-age' => ['label' => 'Atomic age', 'description' => '1950s retro-futurism: teal, mustard and starbursts', 'dark' => false],
     'wtf' => ['label' => 'WTF', 'description' => 'Comic Sans, clashing neon, wonky cards. Why? Why not.', 'dark' => false],
+    'suse' => ['label' => 'SUSE Linux', 'description' => 'Pine and jungle green on fog grey', 'dark' => false],
+    'win95' => ['label' => 'Windows 95', 'description' => 'Teal desktop, grey bevelled windows, navy title bars', 'dark' => false],
+    'winxp' => ['label' => 'Windows XP', 'description' => 'Blue title bars, green start button, beige windows', 'dark' => false],
+    'ubuntu' => ['label' => 'Ubuntu', 'description' => 'Aubergine and orange', 'dark' => false],
+    'amiga' => ['label' => 'Amiga', 'description' => 'Workbench blue, white and orange – errors as Guru Meditation', 'dark' => true],
 ];
 
 const THEME_COOKIE = 'panag_theme';

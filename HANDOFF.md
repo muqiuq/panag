@@ -21,7 +21,7 @@ Gewünscht (vom User):
 - Einfachere Netzwerk-Zuordnung pro User
 - Such-/Kommandofeld für Freigaben (tippen → Enter → Pfeiltasten/Maus → Enter/Klick)
 - Alle Tabellen sortierbar
-- Themes pro User: gebaut sind Default, Dark mode, High Contrast, High Contrast Dark, Slay, Switzerland, Terminal, Brasil, Atomic age, WTF (Auswahl des Users vom 2026-11-08)
+- Themes pro User: gebaut sind Default, Dark mode, High Contrast, High Contrast Dark, Slay, Switzerland, Terminal, Brasil, Atomic age, WTF, SUSE Linux, Windows 95, Windows XP, Ubuntu, Amiga (Auswahl des Users vom 2026-11-08)
 
 ## 2. Getroffene Entscheide (vom User bestätigt)
 
@@ -53,10 +53,10 @@ Gewünscht (vom User):
 | `189b31c` | 2 – Freigabezeiten | Dauern pro User (15 min–14 h / 15 min–12 h, Server-Validierung 422); Verlängern ohne Kürzen; Extend/Revoke pro Eintrag; JS nach `public/js/` (nur `textContent`) |
 | „Phase 3: …“ | 3 – Bedienung | Kommandofeld (`/`, Ctrl/Cmd+K, IP-Suche, `vpn 2h`); Admin-Seiten `users`/`user` (Tabs)/`networks`/`matrix`; Default-Netze überall nur ≤ Level (auch Admins); OTP-Secret nur nach „Reveal“ (geloggt); alle Tabellen sortierbar, Log serverseitig; CSP aktiv |
 
-| `064d7be`, „Themes: …“ | 4 – Themes | Default, Dark mode, High contrast, High contrast dark, Slay, Switzerland, Terminal, Brasil, Atomic age, WTF; Auswahl im Profil und im Kommandofeld, `users.theme` + Cookie für die Login-Seite; axe-Kontrastprüfung (AAA für HC) und Screenshots pro Theme |
+| `064d7be`, „Themes: …“ | 4 – Themes | Default, Dark mode, High contrast, High contrast dark, Slay, Switzerland, Terminal, Brasil, Atomic age, WTF, SUSE Linux, Windows 95, Windows XP, Ubuntu, Amiga; Auswahl im Profil und im Kommandofeld, `users.theme` + Cookie für die Login-Seite; axe-Kontrastprüfung (AAA für HC) und Screenshots pro Theme |
 | `dd8fb66` | Security Monitoring | Regeln W1–W7/P1–P8/M1, Alarme mit Bündelung und Cooldown, Mails (SMTP, Digest, „Warst du das?“), GeoIP (DB-IP Lite, MMDB), KI-Triage via OpenRouter, `admin/alerts.php`, `admin/monitoring.php`, Config-Seite mit Herkunft und Secrets; Stand in [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md) Kapitel 18 |
 
-Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **144 PHPUnit**, **109 E2E**.
+Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **144 PHPUnit**, **114 E2E**.
 GitHub Actions: Workflow geschrieben und mit `actionlint` geprüft, **aber noch nie auf GitHub gelaufen**.
 
 ### Unterwegs gefundene und behobene Bugs (wichtig für Produktion)
