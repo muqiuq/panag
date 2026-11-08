@@ -14,6 +14,7 @@ require_once __DIR__ . '/functions.php';
 require_once __DIR__ . '/access.php';
 require_once __DIR__ . '/default_networks.php';
 require_once __DIR__ . '/palette.php';
+require_once __DIR__ . '/themes.php';
 require_once __DIR__ . '/html.php';
 require_once __DIR__ . '/config_checks.php';
 require_once __DIR__ . '/monitor/state.php';

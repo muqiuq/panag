@@ -2,6 +2,10 @@
 ensure_session();
 $user = current_user();
 $impersonator = $user ? impersonator() : null;
+$theme = current_theme($user);
+if ($user && !$impersonator) {
+    remember_theme_cookie($theme); // keeps the login page in the user's theme, also for older sessions
+}
 $basePath = base_path();
 $currentScript = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
 $navLink = static function (string $path, string $label) use ($currentScript): string {
@@ -11,7 +15,7 @@ $navLink = static function (string $path, string $label) use ($currentScript): s
 };
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" <?= theme_attributes($theme) ?>>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,6 +24,7 @@ $navLink = static function (string $path, string $label) use ($currentScript): s
     <link rel="icon" type="image/svg+xml" href="<?= e(url_for('favicon.svg')) ?>">
     <link rel="stylesheet" href="<?= e(url_for('css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= e(url_for('css/main.css')) ?>">
+    <link rel="stylesheet" href="<?= e(url_for('css/themes.css')) ?>">
 </head>
 <body data-base-path="<?= e($basePath) ?>" data-csrf-token="<?= e(csrf_token()) ?>"<?= $user ? ' data-palette="on"' : '' ?>>
 <?php include view_path('partials/dev_banner'); ?>
@@ -32,7 +37,7 @@ $navLink = static function (string $path, string $label) use ($currentScript): s
   </form>
 </div>
 <?php endif; ?>
-<nav class="navbar navbar-expand-lg navbar-dark bg-danger mb-4">
+<nav class="navbar navbar-expand-lg app-navbar mb-4" data-bs-theme="dark">
   <div class="container-fluid">
     <a class="navbar-brand d-flex align-items-center gap-2" href="<?= e(url_for('index.php')) ?>">
       <img src="<?= e(url_for('favicon.svg')) ?>" alt="Logo" width="24" height="24">

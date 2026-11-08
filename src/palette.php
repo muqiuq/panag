@@ -15,6 +15,10 @@ function palette_commands(array $user): array
     $commands[] = ['id' => 'revoke-mine', 'label' => 'Revoke all my access', 'keywords' => 'remove delete clear', 'hint' => 'Removes all of your active entries', 'api' => 'revokeMine'];
     $commands[] = ['id' => 'durations', 'label' => 'Set durations', 'keywords' => 'time timeout profile settings', 'hint' => 'Profile', 'path' => 'profile.php#durations'];
     $commands[] = ['id' => 'my-defaults', 'label' => 'My default networks', 'keywords' => 'profile settings', 'hint' => 'Profile', 'path' => 'profile.php#networks'];
+    foreach (THEMES as $key => $theme) {
+        $commands[] = ['id' => 'theme-' . $key, 'label' => 'Theme: ' . $theme['label'], 'keywords' => 'theme appearance look colors colours ' . ($theme['dark'] ? 'dark night' : 'light'),
+            'hint' => $theme['description'], 'api' => 'setTheme', 'body' => ['theme' => $key]];
+    }
 
     $pages = [
         ['manage_users', 'Users', 'admin/users.php', 'accounts people'],

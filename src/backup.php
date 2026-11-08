@@ -128,7 +128,7 @@ function import_users_json(string $json): array
             'accesslevel' => $level,
             'default_duration_sec' => $defaultDuration,
             'extended_duration_sec' => $extendedDuration,
-            'theme' => preg_match('/^[a-z0-9-]{1,32}$/', (string)($row['theme'] ?? '')) ? (string)$row['theme'] : 'default',
+            'theme' => theme_or_default($row['theme'] ?? null),
         ];
     }
 

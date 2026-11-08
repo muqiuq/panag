@@ -140,7 +140,7 @@ include view_path('header');
     <a href="<?= e(url_for('admin/users.php')) ?>" class="small">&larr; Users</a>
     <h1 class="h4 mb-0"><?= e($target['username']) ?> <code class="fs-6"><?= e($target['user_ip']) ?></code>
       <span class="badge <?= role_badge_class($target['role']) ?> fs-6 align-middle"><?= e(role_label($target['role'])) ?></span>
-      <span class="badge text-bg-light border fs-6 align-middle">L<?= (int)$target['accesslevel'] ?></span>
+      <span class="badge bg-body-tertiary text-body border fs-6 align-middle">L<?= (int)$target['accesslevel'] ?></span>
     </h1>
   </div>
   <?php if (!$isSelf): ?>

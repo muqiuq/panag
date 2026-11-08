@@ -49,15 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<?php $theme = current_theme(null); ?>
+<html lang="en" <?= theme_attributes($theme) ?>>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= htmlspecialchars(APP_NAME) ?> Login</title>
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('css/bootstrap.min.css')) ?>">
     <link rel="stylesheet" href="<?= htmlspecialchars(url_for('css/main.css')) ?>">
+    <link rel="stylesheet" href="<?= htmlspecialchars(url_for('css/themes.css')) ?>">
 </head>
-<body class="bg-light">
+<body>
 <?php include view_path('partials/dev_banner'); ?>
 <div class="container d-flex justify-content-center align-items-center min-vh-100">
     <?php if ($ipAllowed): ?>

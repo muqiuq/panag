@@ -428,6 +428,11 @@ Semantische Klassen, 8 Theme-Dateien, Auswahl im Profil und im Kommandofeld, The
 
 **Fertig, wenn:** Alle Themes auf allen Seiten ohne Darstellungsfehler laufen (Screenshot-Suite) und die HC-Themes axe-clean sind.
 
+**Stand 2026-11-08: umgesetzt mit der vom User gewünschten Auswahl** – `default`, `dark` (neu, „Dark mode“), `high-contrast`, `high-contrast-dark`, `slay`. Terminal, Switzerland, Crazy Colors und Rainbow sind nicht gebaut; ein neues Theme braucht einen Eintrag in `THEMES` (`src/themes.php`) und einen Block in `public/css/themes.css`.
+- Auswahl im Profil (Kachel pro Theme mit farbiger Vorschau, Live-Vorschau beim Anklicken, „Save theme“) und im Kommandofeld („Theme: Slay“ wechselt sofort, ohne Reload; `api.php?f=setTheme`). Gespeichert in `users.theme`, das Cookie `panag_theme` (HttpOnly, nicht sensibel) spiegelt den Wert für die Login-Seite. Beim Impersonieren bleibt das Cookie des Admins unverändert.
+- Abweichungen: **eine** Datei `public/css/themes.css` statt einer pro Theme (weniger Requests auf dem hEX S; die Live-Vorschau braucht alle Themes). Die Vorschau-Kacheln zeigen Farbflächen statt Text, damit die Seite auch in den HC-Themes AAA-konform bleibt. „System (auto)“ ist nicht gebaut. Die Navbar ist jetzt `.app-navbar` mit `data-bs-theme="dark"` statt `navbar-dark bg-danger`.
+- Tests: `tests/e2e/themes.spec.js` macht pro Theme Screenshots von 14 Ansichten (Report-Anhänge) und prüft die Kontraste mit `@axe-core/playwright` 4.14.0 – AAA für beide HC-Themes, AA für die übrigen. Dabei fielen im bisherigen Standard-Look AA-Verstösse auf (Links `#0d6efd` auf dem grauen Seitenhintergrund, graue Outline-Buttons, Code-Farbe, hellrote Navbar-Texte); sie sind mit leicht dunkleren Farben behoben, das PANAG-Rot bleibt.
+
 ### Phase 5 – Aufräumen und Doku (Aufwand S)
 - README überarbeiten: RouterOS-Installation (Container, veth, Mounts, Envs, API-User, Firewall), Env-Referenz, Update- und Backup-Ablauf.
 - Entfernen: `sync_panag.sh`, Run-on-save in `.vscode/`, `main.css` im Root, `img/.DS_Store`.

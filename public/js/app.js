@@ -132,8 +132,14 @@
     if (message && !window.confirm(message)) event.preventDefault();
   });
 
+  /** Switch the page to another theme without reloading (styles: css/themes.css, scoped on <html data-theme>). */
+  function applyTheme(theme, dark) {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.dataset.bsTheme = dark ? 'dark' : 'light';
+  }
+
   window.Panag = {
     api, el, showAlert, toast, busy, formatDuration, formatLeft, formatClock, stampEntries, remainingSeconds, untilClock,
-    normalizeAddress, accessChanged, BASE_PATH, CSRF_TOKEN,
+    normalizeAddress, accessChanged, applyTheme, BASE_PATH, CSRF_TOKEN,
   };
 })();

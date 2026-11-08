@@ -23,7 +23,7 @@ try {
         <option value="<?= htmlspecialchars($__u['user_ip']) ?>"><?= htmlspecialchars($__u['username']) ?><?= $__u['role'] !== 'user' ? ' (' . htmlspecialchars($__u['role']) . ')' : '' ?></option>
       <?php endforeach; ?>
     </datalist>
-    <button class="btn btn-sm btn-outline-dark" type="submit">Switch (logs out)</button>
+    <button class="btn btn-sm btn-outline-secondary" type="submit">Switch (logs out)</button>
     <span class="text-muted">OTP: <code>./run.sh otp</code></span>
   </form>
 </div>

@@ -7,8 +7,19 @@ html, body {
     height: 100%;
 }
 
+/* Theme hooks – public/css/themes.css overrides them per [data-theme] (plus Bootstrap's own variables). */
+:root,
+[data-theme] {
+    --panag-page-bg: #f5f7fb;
+    --panag-nav-bg: #dc3545;
+    --panag-nav-color: #fff;
+    --panag-nav-hover: #fff;
+    --panag-accent: var(--bs-primary);
+    --panag-accent-color: #fff;
+}
+
 body {
-    background: #f5f7fb;
+    background: var(--panag-page-bg);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -22,9 +33,15 @@ footer {
     flex-shrink: 0;
 }
 
-.navbar-dark .navbar-text,
-.navbar-dark .nav-link {
-    color: #fff !important;
+/* The navbar is always dark (data-bs-theme="dark" on the element); its colours come from the theme. */
+.app-navbar {
+    position: relative;
+    background: var(--panag-nav-bg);
+}
+.app-navbar .navbar-brand,
+.app-navbar .navbar-text,
+.app-navbar .nav-link {
+    color: var(--panag-nav-color) !important;
 }
 
 .navbar-nav .nav-link {
@@ -32,16 +49,19 @@ footer {
     padding-bottom: 0.35rem;
 }
 
-.navbar-dark .nav-link:hover,
-.navbar-dark .nav-link:focus,
-.navbar-dark .nav-link.active {
-    color: #ffe5e5 !important;
+.app-navbar .nav-link:hover,
+.app-navbar .nav-link:focus,
+.app-navbar .nav-link.active {
+    color: var(--panag-nav-hover) !important;
     text-decoration: underline;
     text-underline-offset: 0.3em;
 }
 
+/* White on the navbar colours (PANAG red is 4.5:1 – no lighter tints). */
+.app-navbar .btn-outline-light { --bs-btn-color: #fff; }
+
 .palette-open-btn kbd {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.25);
     color: inherit;
     padding: 0 0.35em;
 }
@@ -63,7 +83,7 @@ footer {
 
 .login-column { max-width: 420px; }
 .login-hero { max-width: 280px; width: 100%; margin: 0 auto; }
-.login-hero-img { max-width: 280px; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: contain; }
+.login-hero-img { max-width: 280px; width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: contain; border-radius: var(--bs-border-radius-xl); }
 .nothing-here { font-size: 1.1rem; }
 .nothing-here-icon { font-size: 3rem; line-height: 1; }
 
@@ -246,3 +266,45 @@ th[aria-sort="descending"] .sort-btn::after { content: "▼"; opacity: 0.9; }
     border-radius: var(--bs-border-radius-sm);
 }
 .matrix-legend-invalid { background: var(--bs-warning-bg-subtle); }
+
+/* --- theme picker (profile.php): a tile per theme with a text-free preview rendered in that theme --- */
+.theme-tile {
+    display: block;
+    height: 100%;
+    padding: 0.5rem;
+    cursor: pointer;
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius-lg);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+}
+.btn-check:checked + .theme-tile {
+    outline: 3px solid var(--bs-primary);
+    outline-offset: 2px;
+}
+.btn-check:focus-visible + .theme-tile {
+    outline: 3px dashed var(--bs-primary);
+    outline-offset: 2px;
+}
+.theme-tile-name { display: block; margin-top: 0.5rem; font-weight: 700; }
+.theme-tile-desc { display: block; font-size: 0.85rem; color: var(--bs-secondary-color); }
+.theme-preview {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    background: var(--panag-page-bg);
+}
+.theme-preview-nav { display: block; position: relative; height: 1.25rem; background: var(--panag-nav-bg); }
+.theme-preview-card {
+    display: block;
+    margin: 0.5rem;
+    padding: 0.5rem;
+    background: var(--bs-body-bg);
+    border: var(--bs-border-width) solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+}
+.theme-preview-line { display: block; height: 0.35rem; margin-bottom: 0.35rem; border-radius: 1rem; background: var(--bs-body-color); }
+.theme-preview-link { width: 60%; background: var(--bs-link-color); }
+.theme-preview-btn { display: block; width: 45%; height: 0.9rem; border-radius: var(--bs-border-radius); background: var(--panag-accent); }
+.theme-preview[data-theme="slay"] .theme-preview-btn { border-radius: 50rem; }

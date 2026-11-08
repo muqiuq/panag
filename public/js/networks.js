@@ -58,7 +58,7 @@
       return el('li', { class: 'list-group-item d-flex align-items-center gap-2' },
         el('input', { class: 'form-check-input mt-0', type: 'checkbox', id, checked, disabled: !eligible && !checked, 'data-user-toggle': String(u.id) }),
         el('label', { class: 'form-check-label flex-grow-1', for: id }, u.name, ' ', el('code', { class: 'small' }, u.ip)),
-        el('span', { class: 'badge text-bg-light border' }, `L${u.level}`),
+        el('span', { class: 'badge bg-body-tertiary text-body border' }, `L${u.level}`),
         eligible ? null : el('span', { class: 'badge text-bg-warning' }, 'Above level – not granted'));
     }));
     if (users.length === 0) list.replaceChildren(el('li', { class: 'list-group-item text-muted' }, 'No user has a sufficient level.'));

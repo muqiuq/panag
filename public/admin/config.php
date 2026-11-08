@@ -28,7 +28,7 @@ function config_source_html(array $meta): string
     if ($meta['source'] === 'file') {
         return '<span class="badge text-bg-primary">env file</span> <code class="small">' . e((string)$meta['file']) . '</code>';
     }
-    return $meta['source'] === 'env' ? '<span class="badge text-bg-primary">env</span>' : '<span class="badge text-bg-light border">default</span>';
+    return $meta['source'] === 'env' ? '<span class="badge text-bg-primary">env</span>' : '<span class="badge bg-body-tertiary text-body border">default</span>';
 }
 
 $groups = [];
@@ -86,7 +86,7 @@ include view_path('header');
             <?php foreach ($items as $name => $meta): ?>
               <tr>
                 <td class="text-muted small"><?= e($groupName) ?></td>
-                <td class="fw-semibold text-nowrap"><?= e($name) ?><?= panag_config_is_secret($name) ? ' <span class="badge text-bg-dark">secret</span>' : '' ?></td>
+                <td class="fw-semibold text-nowrap"><?= e($name) ?><?= panag_config_is_secret($name) ? ' <span class="badge text-bg-secondary">secret</span>' : '' ?></td>
                 <td class="text-break"><?= config_value_html($name, $meta) ?></td>
                 <td class="text-nowrap" data-sort-value="<?= e($meta['source']) ?>"><?= config_source_html($meta) ?></td>
                 <td class="small text-muted text-break"><?php

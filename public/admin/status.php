@@ -125,8 +125,8 @@ include view_path('header');
           </div>
         </div>
         <div class="mt-3 d-flex justify-content-end">
-          <a href="<?= htmlspecialchars(url_for('admin/monitoring.php')) ?>" class="btn btn-outline-dark btn-sm me-2">Security monitoring</a>
-          <a href="<?= htmlspecialchars(url_for('status_public.php')) ?>" class="btn btn-outline-dark btn-sm">View public status</a>
+          <a href="<?= htmlspecialchars(url_for('admin/monitoring.php')) ?>" class="btn btn-outline-secondary btn-sm me-2">Security monitoring</a>
+          <a href="<?= htmlspecialchars(url_for('status_public.php')) ?>" class="btn btn-outline-secondary btn-sm">View public status</a>
         </div>
       </div>
     </div>

@@ -163,6 +163,16 @@ function handle_reveal_otp(array $user): void
     json_response(true, 'OTP secret revealed.', ['secret' => $target['otp_secret'], 'uri' => otp_provisioning_uri($target)]);
 }
 
+/** {theme} – the own theme (palette "Theme: …"); the page switches without a reload. */
+function handle_set_theme(array $user): void
+{
+    $theme = (string)(json_input()['theme'] ?? '');
+    if (!set_user_theme($user, $theme)) {
+        json_response(false, 'Unknown theme.', [], 422);
+    }
+    json_response(true, 'Theme: ' . THEMES[$theme]['label'] . '.', ['theme' => $theme, 'dark' => theme_is_dark($theme)]);
+}
+
 // action => [HTTP method, handler]
 $routes = [
     'palette' => ['GET', fn() => json_response(true, 'Palette data.', palette_data($user))],
@@ -179,6 +189,7 @@ $routes = [
     'savePrefs' => ['POST', fn() => handle_save_prefs($user)],
     'setDefaultNetworks' => ['POST', fn() => handle_set_default_networks($user)],
     'revealOtp' => ['POST', fn() => handle_reveal_otp($user)],
+    'setTheme' => ['POST', fn() => handle_set_theme($user)],
 ];
 
 $route = $routes[(string)($_GET['f'] ?? '')] ?? null;

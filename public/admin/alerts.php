@@ -72,7 +72,7 @@ include view_path('header');
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <h1 class="h4 mb-0">Alert #<?= (int)$detail['id'] ?></h1>
     <span class="badge <?= severity_badge_class((string)$detail['severity']) ?> fs-6"><?= e(strtoupper((string)$detail['severity'])) ?></span>
-    <span class="badge text-bg-light border fs-6" data-testid="alert-status"><?= e(ALERT_STATUSES[$detail['status']] ?? $detail['status']) ?></span>
+    <span class="badge bg-body-tertiary text-body border fs-6" data-testid="alert-status"><?= e(ALERT_STATUSES[$detail['status']] ?? $detail['status']) ?></span>
     <?php if ($detail['user_response'] === 'not_me'): ?><span class="badge text-bg-danger fs-6">User: not me</span><?php endif; ?>
     <?php if ($detail['user_response'] === 'me'): ?><span class="badge text-bg-success fs-6">User: that was me</span><?php endif; ?>
   </div>

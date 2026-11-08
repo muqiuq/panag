@@ -1,7 +1,7 @@
 <?php
 // Own profile: access durations (all roles) and default networks – superusers and admins choose their own
 // (only networks within their access level, saved immediately via the API); users see theirs read-only.
-// Theme settings follow in phase 4.
+// Theme: tiles with a preview of each theme, live preview on selection (js/theme-picker.js), saved with the form.
 require_once __DIR__ . '/../src/bootstrap.php';
 require_login();
 $user = current_user();
@@ -33,6 +33,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['profile_flash'] = ['type' => 'success', 'message' => 'Removed from your known places.', 'section' => 'places'];
         header('Location: ' . url_for('profile.php') . '#places');
         exit;
+    } elseif ($action === 'save_theme') {
+        $theme = (string)($_POST['theme'] ?? '');
+        $_SESSION['profile_flash'] = set_user_theme($user, $theme)
+            ? ['type' => 'success', 'message' => 'Theme set to ' . THEMES[$theme]['label'] . '.', 'section' => 'theme']
+            : ['type' => 'danger', 'message' => 'Unknown theme.', 'section' => 'theme'];
+        header('Location: ' . url_for('profile.php') . '#theme');
+        exit;
     } elseif ($action === 'save_durations') {
         $durationInput = ['default' => trim((string)($_POST['default_duration'] ?? '')), 'extended' => trim((string)($_POST['extended_duration'] ?? ''))];
         $durationErrors = update_user_durations($user, parse_duration_input($durationInput['default']), parse_duration_input($durationInput['extended']));
@@ -52,7 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $canEditDefaults = can($user, 'edit_own_default_networks');
 $places = user_places((int)$user['id']);
 $defaultNetworks = get_default_networks_for_user((int)$user['id']);
-$pageScripts = ['js/durations.js', 'js/default-networks.js'];
+$pageScripts = ['js/durations.js', 'js/default-networks.js', 'js/theme-picker.js'];
+$userTheme = current_theme($user);
 
 include view_path('header');
 ?>
@@ -176,6 +184,46 @@ include view_path('header');
         Only admins see alerts.<?= MONITOR_AI !== 'off' ? ' Unusual cases may be assessed by an AI service; it only receives pseudonymised facts (no name, no IP address).' : '' ?>
       </p>
     <?php endif; ?>
+  </div>
+</div>
+
+<div class="card shadow-sm mt-4" id="theme">
+  <div class="card-header">Theme</div>
+  <div class="card-body">
+    <?php if ($flash && ($flash['section'] ?? '') === 'theme'): ?>
+      <div class="alert alert-<?= e($flash['type']) ?>" role="alert"><?= e($flash['message']) ?></div>
+    <?php endif; ?>
+    <form method="post" data-theme-picker data-saved-theme="<?= e($userTheme) ?>">
+      <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+      <input type="hidden" name="action" value="save_theme">
+      <fieldset>
+        <legend class="visually-hidden">Theme</legend>
+        <div class="row g-3">
+          <?php foreach (THEMES as $key => $t): ?>
+            <div class="col-6 col-md-4 col-xl">
+              <input type="radio" class="btn-check" name="theme" id="theme-<?= e($key) ?>" value="<?= e($key) ?>"
+                data-dark="<?= $t['dark'] ? '1' : '0' ?>" aria-describedby="theme-desc-<?= e($key) ?>" <?= $key === $userTheme ? 'checked' : '' ?>>
+              <label class="theme-tile" for="theme-<?= e($key) ?>">
+                <span class="theme-preview" <?= theme_attributes($key) ?> aria-hidden="true">
+                  <span class="theme-preview-nav"></span>
+                  <span class="theme-preview-card">
+                    <span class="theme-preview-line"></span>
+                    <span class="theme-preview-line theme-preview-link"></span>
+                    <span class="theme-preview-btn"></span>
+                  </span>
+                </span>
+                <span class="theme-tile-name"><?= e($t['label']) ?></span>
+                <span class="theme-tile-desc" id="theme-desc-<?= e($key) ?>" aria-hidden="true"><?= e($t['description']) ?></span>
+              </label>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </fieldset>
+      <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+        <button class="btn btn-primary btn-sm" type="submit">Save theme</button>
+        <span class="small text-muted" data-theme-preview-note hidden>Preview – save to keep this theme.</span>
+      </div>
+    </form>
   </div>
 </div>
 <?php include view_path('footer'); ?>

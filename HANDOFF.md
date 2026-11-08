@@ -1,10 +1,10 @@
 # PANAG – Übergabe / Stand der Arbeit
 
-Stand: 2026-11-07 · Branch `main` · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
+Stand: 2026-11-08 · Branch `main` · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
 Claude-Session) nahtlos fortzusetzen. Der Gesamtplan steht in [PLAN.md](PLAN.md); dieses Dokument fasst
 zusammen, was entschieden, gebaut und gelernt wurde.
 
-> Neue Claude-Session: „Lies PLAN.md und HANDOFF.md und mach mit Phase 4 weiter.“
+> Neue Claude-Session: „Lies PLAN.md und HANDOFF.md und mach mit Phase 5 weiter.“
 
 ---
 
@@ -21,7 +21,7 @@ Gewünscht (vom User):
 - Einfachere Netzwerk-Zuordnung pro User
 - Such-/Kommandofeld für Freigaben (tippen → Enter → Pfeiltasten/Maus → Enter/Klick)
 - Alle Tabellen sortierbar
-- Themes pro User: High Contrast, High Contrast Dark, Terminal, Slay, Switzerland, Crazy Colors, Rainbow
+- Themes pro User: gebaut sind Default, Dark mode, High Contrast, High Contrast Dark, Slay (Auswahl des Users vom 2026-11-08)
 
 ## 2. Getroffene Entscheide (vom User bestätigt)
 
@@ -53,9 +53,10 @@ Gewünscht (vom User):
 | `189b31c` | 2 – Freigabezeiten | Dauern pro User (15 min–14 h / 15 min–12 h, Server-Validierung 422); Verlängern ohne Kürzen; Extend/Revoke pro Eintrag; JS nach `public/js/` (nur `textContent`) |
 | „Phase 3: …“ | 3 – Bedienung | Kommandofeld (`/`, Ctrl/Cmd+K, IP-Suche, `vpn 2h`); Admin-Seiten `users`/`user` (Tabs)/`networks`/`matrix`; Default-Netze überall nur ≤ Level (auch Admins); OTP-Secret nur nach „Reveal“ (geloggt); alle Tabellen sortierbar, Log serverseitig; CSP aktiv |
 
+| „Phase 4: …“ | 4 – Themes | Default, Dark mode, High contrast, High contrast dark, Slay; Auswahl im Profil und im Kommandofeld, `users.theme` + Cookie für die Login-Seite; axe-Kontrastprüfung (AAA für HC) und Screenshots pro Theme |
 | `dd8fb66` | Security Monitoring | Regeln W1–W7/P1–P8/M1, Alarme mit Bündelung und Cooldown, Mails (SMTP, Digest, „Warst du das?“), GeoIP (DB-IP Lite, MMDB), KI-Triage via OpenRouter, `admin/alerts.php`, `admin/monitoring.php`, Config-Seite mit Herkunft und Secrets; Stand in [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md) Kapitel 18 |
 
-Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **137 PHPUnit**, **96 E2E**.
+Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **144 PHPUnit**, **104 E2E**.
 GitHub Actions: Workflow geschrieben und mit `actionlint` geprüft, **aber noch nie auf GitHub gelaufen**.
 
 ### Unterwegs gefundene und behobene Bugs (wichtig für Produktion)
@@ -157,10 +158,8 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 2. **Phase 0, Punkt 6:** Testinstallation auf dem hEX S nach `docs/deploy-mikrotik.md` (RAM/Speicher prüfen,
    Login-Seite muss die echte WireGuard-IP zeigen, Freigabe muss in der Address-List landen).
 3. ~~Phase 3 – Bedienung~~ erledigt (Stand siehe PLAN.md, Phase 3).
-4. **Phase 4 – Themes** (nächste Arbeitsphase, PLAN.md 4.9): `users.theme` existiert bereits (Migration 002),
-   Werte noch ungenutzt. Vorarbeit ist teilweise da: keine Inline-Styles mehr, `.stat-tile` ist semantisch.
-   Noch hart codiert: Navbar `bg-danger`, Badges/Buttons mit Bootstrap-Farbklassen. Der Befehl „Theme: …“
-   gehört in `palette_commands()` (`src/palette.php`). Theme-CSS muss ohne Inline-Styles auskommen (CSP).
+4. ~~Phase 4 – Themes~~ erledigt mit der gewünschten Auswahl (Stand siehe PLAN.md, Phase 4). Weitere Themes aus
+   PLAN.md 4.9 (Terminal, Switzerland, Crazy Colors, Rainbow) nur auf Wunsch.
 5. **Phase 5 – Aufräumen/Doku**, optional RouterOS-CHR-Test in der CI und Trivy.
 6. **Security Monitoring** ist umgesetzt und committet (`dd8fb66`, Release-Tag `v0.2` lokal). Offen sind die
    Geräteprüfung am hEX S (Peer-Felder, Egress, Scheduler) und ein echter OpenRouter-Testaufruf mit der

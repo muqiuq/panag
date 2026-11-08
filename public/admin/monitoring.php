@@ -147,7 +147,7 @@ include view_path('header');
               <?php foreach ($peers as $p): ?>
                 <tr>
                   <td><?= e($p['name'] ?: substr((string)$p['public_key'], 0, 10) . '…') ?></td>
-                  <td><?= $p['username'] ? e($p['username']) : '<span class="text-warning">unknown</span>' ?></td>
+                  <td><?= $p['username'] ? e($p['username']) : '<span class="text-warning-emphasis">unknown</span>' ?></td>
                   <td><code><?= e($p['endpoint'] ?? '') ?></code></td>
                   <td><?= e($p['country'] ?? '') ?></td>
                   <td data-sort-value="<?= e((string)($p['asn'] ?? '')) ?>"><?= $p['asn'] ? 'AS' . (int)$p['asn'] . (is_hosting_asn((int)$p['asn']) ? ' <span class="badge text-bg-warning">hosting</span>' : '') : '' ?></td>

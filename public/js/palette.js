@@ -211,8 +211,9 @@
       if (q.duration !== null) body.duration = q.durationText;
       resp = await api('grantNetwork', body);
     } else {
-      resp = await api(item.command.api, {});
+      resp = await api(item.command.api, item.command.body || {});
     }
+    if (resp.status && resp.theme) window.Panag.applyTheme(resp.theme, resp.dark);
     toast(resp.message, resp.status);
     if (resp.entries) accessChanged(resp.entries);
     return { ok: Boolean(resp.status), message: resp.message };

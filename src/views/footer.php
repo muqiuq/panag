@@ -12,7 +12,7 @@ if (current_user()) {
   <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center small text-muted">
     <span><?= e(APP_NAME) ?> <?= e(APP_VERSION) ?> (Philipp's Admin Network Access Gatekeeper)</span>
     <span class="d-flex align-items-center gap-2">
-      <a href="https://github.com/muqiuq/panag" class="link-secondary" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://github.com/muqiuq/panag" class="text-reset" target="_blank" rel="noopener">GitHub</a>
       <span>|</span>
       <span>© Philipp Albrecht &lt;philipp@uisa.ch&gt;</span>
     </span>
