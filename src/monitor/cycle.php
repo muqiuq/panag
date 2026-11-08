@@ -5,6 +5,7 @@
 /** @return array<string, mixed> statistics of the run */
 function run_monitor_cycle(?int $now = null): array
 {
+    rule_settings_reload(); // bin/monitor.php --loop runs for days – pick up changes from admin/rules.php
     if (!MONITOR_ENABLED) {
         return ['status' => 'disabled'];
     }
@@ -45,6 +46,7 @@ function run_monitor_cycle(?int $now = null): array
     }
     $findings = array_merge($findings, $step('audit', fn() => monitor_audit_findings($now)) ?? []);
     $findings = array_merge($findings, $step('health', fn() => monitor_health_findings($now)) ?? []);
+    $findings = rules_apply($findings); // switched-off rules, severity overrides (admin/rules.php)
     $stats['findings'] = count($findings);
 
     $alertIds = $step('alerts', fn() => monitor_create_alerts($findings, $now)) ?? [];

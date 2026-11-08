@@ -19,6 +19,7 @@ final class MonitoringTest extends TestCase
             'settings', 'user_to_network', 'otp_used', 'networks', 'users', 'audit_log', 'login_attempts'] as $table) {
             $pdo->exec("DELETE FROM {$table}");
         }
+        rule_settings_reload(); // settings were emptied above
         $this->router = new FakeRouterClient();
         set_router($this->router);
         $this->mailer = new FakeMailer();

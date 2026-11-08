@@ -24,6 +24,7 @@ require_once __DIR__ . '/monitor/geoip.php';
 require_once __DIR__ . '/monitor/places.php';
 require_once __DIR__ . '/monitor/baseline.php';
 require_once __DIR__ . '/monitor/rules.php';
+require_once __DIR__ . '/monitor/rule_settings.php';
 require_once __DIR__ . '/monitor/alerts.php';
 require_once __DIR__ . '/monitor/mailer.php';
 require_once __DIR__ . '/monitor/notify.php';

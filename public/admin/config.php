@@ -55,6 +55,13 @@ $container = [
     ['PHP_DISPLAY_ERRORS', getenv('PHP_DISPLAY_ERRORS'), 'PHP display_errors (docker/php.ini), On only in dev'],
     ['SEED_DEMO', getenv('SEED_DEMO'), 'Insert demo data on start (dev only)'],
 ];
+// Environment values of detection rules that were changed on admin/rules.php: env name => rule parameter.
+$ruleOverrides = [];
+foreach (RULE_PARAMS as $param => $def) {
+    if (isset($def['env']) && rule_param_source($param) === 'web') {
+        $ruleOverrides[$def['env']] = $param;
+    }
+}
 ensure_session();
 $flash = $_SESSION['config_flash'] ?? null;
 unset($_SESSION['config_flash']);
@@ -95,7 +102,11 @@ include view_path('header');
               <tr>
                 <td class="text-muted small"><?= e($groupName) ?></td>
                 <td class="fw-semibold text-nowrap"><?= e($name) ?><?= panag_config_is_secret($name) ? ' <span class="badge text-bg-secondary">secret</span>' : '' ?></td>
-                <td class="text-break"><?= config_value_html($name, $meta) ?></td>
+                <td class="text-break"><?= config_value_html($name, $meta) ?><?php
+                  $ruleParam = $ruleOverrides[$name] ?? null;
+                  if ($ruleParam !== null): ?>
+                    <div class="small" data-testid="rule-override"><span class="badge bg-body-tertiary text-body border">web</span> <?= e(rule_param_display($ruleParam, rule_param($ruleParam)) ?: '(empty)') ?> – changed on <a href="<?= e(url_for('admin/rules.php')) ?>">Detection rules</a>, this wins</div>
+                  <?php endif; ?></td>
                 <td class="text-nowrap" data-sort-value="<?= e($meta['source']) ?>"><?= config_source_html($meta) ?></td>
                 <td class="small text-muted text-break"><?php
                   $def = $meta['default'];

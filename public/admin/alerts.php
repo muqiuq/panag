@@ -238,19 +238,23 @@ include view_path('header');
     </div>
   </div>
   <div class="card shadow-sm mt-4" id="rules">
-    <div class="card-header">Detection rules <span class="text-muted small">– thresholds as currently configured (<a href="<?= e(url_for('admin/config.php')) ?>">Config</a>)</span></div>
+    <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span>Detection rules <span class="text-muted small">– as currently configured</span></span>
+      <a class="small" href="<?= e(url_for('admin/rules.php')) ?>">Configure rules</a>
+    </div>
     <div class="card-body">
       <div class="table-responsive">
         <table class="table table-sm align-middle mb-0" data-testid="rule-reference">
           <thead>
-            <tr><th>Rule</th><th>Name</th><th>Severity</th><th>Fires when</th><th>Asks the user</th></tr>
+            <tr><th>Rule</th><th>Name</th><th>On</th><th>Severity</th><th>Fires when</th><th>Asks the user</th></tr>
           </thead>
           <tbody>
             <?php foreach (monitor_rule_reference() as $code => $rule): ?>
               <tr id="rule-<?= e($code) ?>">
                 <td><code><?= e($code) ?></code></td>
                 <td class="fw-semibold"><?= e($rule['name']) ?></td>
-                <td class="text-nowrap"><?php foreach ($rule['severity'] as $sev): ?><span class="badge <?= severity_badge_class($sev) ?> me-1"><?= e($sev) ?></span><?php endforeach; ?></td>
+                <td><?= $rule['enabled'] ? 'yes' : '<span class="badge text-bg-secondary">off</span>' ?></td>
+                <td class="text-nowrap"><?php foreach ($rule['severity_override'] !== null ? [$rule['severity_override']] : $rule['severity'] as $sev): ?><span class="badge <?= severity_badge_class($sev) ?> me-1"><?= e($sev) ?></span><?php endforeach; ?></td>
                 <td class="small"><?= e($rule['when']) ?></td>
                 <td class="small"><?= $rule['asks_user'] ? (MONITOR_NOTIFY_USERS ? 'yes' : 'no (MONITOR_NOTIFY_USERS=false)') : 'no' ?></td>
               </tr>

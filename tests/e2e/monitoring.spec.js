@@ -170,7 +170,7 @@ test('a reused one-time password alerts at once; admins work through the status'
   // Rule codes explain themselves: tooltip in the list, reference table below it.
   await expect(row.getByRole('link', { name: 'P2' })).toHaveAttribute('title', 'Reused one-time password blocked');
   await expect(page.getByTestId('rule-reference').locator('#rule-P2')).toContainText('A one-time password is used a second time');
-  await expect(page.getByTestId('rule-reference').locator('#rule-W2')).toContainText('MONITOR_ALLOWED_COUNTRIES (CH, DE)');
+  await expect(page.getByTestId('rule-reference').locator('#rule-W2')).toContainText('outside the allowed countries (CH, DE)');
   await row.getByRole('link').first().click();
   await expect(page.getByRole('link', { name: 'What the rules mean' })).toBeVisible();
   await page.getByLabel('Status').selectOption('false_positive');

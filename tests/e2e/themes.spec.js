@@ -145,7 +145,7 @@ test.describe('every theme on the main pages: screenshots and contrast', () => {
       expect(resp.status).toBe(true);
 
       const pages = ['index.php', 'profile.php', 'admin/users.php', `admin/user.php?id=${admin.id}`, 'admin/networks.php', 'admin/matrix.php',
-        'admin/alerts.php', 'admin/logs.php', 'admin/config.php', 'admin/status.php', 'admin/monitoring.php', 'status_public.php'];
+        'admin/alerts.php', 'admin/rules.php', 'admin/logs.php', 'admin/config.php', 'admin/status.php', 'admin/monitoring.php', 'status_public.php'];
       const rules = meta.aaa ? ['color-contrast', 'color-contrast-enhanced'] : ['color-contrast'];
       const problems = [];
       const check = async (target, name) => {

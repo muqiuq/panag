@@ -41,7 +41,7 @@ Gewünscht (vom User):
 | Commits | direkt auf `main`; GitHub Actions testet der User selbst und meldet Fehler |
 | Push, Branches, Tags | nur auf ausdrückliche Anweisung des Users (siehe `CLAUDE.md`) |
 | Security Monitoring | eigenes Projekt, [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md); KI über **OpenRouter mit GLM** (`z-ai/glm-5.3`), ZDR und `data_collection: deny` fest |
-| Konfiguration | **alles über Env-Variablen**, nichts in der DB; Admins sehen jede Einstellung (Secrets nur als „gesetzt“) |
+| Konfiguration | **alles über Env-Variablen**, nichts in der DB; Admins sehen jede Einstellung (Secrets nur als „gesetzt“). **Ausnahme seit 2026-11-08 (Wunsch des Users):** die Erkennungsregeln sind im Web-UI einstellbar (`admin/rules.php`, `settings['monitor.rules']`); die `MONITOR_*`-Env-Werte sind deren Defaults, die Config-Seite zeigt Überschreibungen. |
 | Runtime-Abhängigkeiten | erlaubt für `maxmind-db/reader` und `phpmailer/phpmailer` (eigene Build-Stage) |
 
 ## 3. Was erledigt ist
@@ -54,6 +54,12 @@ Gewünscht (vom User):
 | „Phase 3: …“ | 3 – Bedienung | Kommandofeld (`/`, Ctrl/Cmd+K, IP-Suche, `vpn 2h`); Admin-Seiten `users`/`user` (Tabs)/`networks`/`matrix`; Default-Netze überall nur ≤ Level (auch Admins); OTP-Secret nur nach „Reveal“ (geloggt); alle Tabellen sortierbar, Log serverseitig; CSP aktiv |
 
 | `064d7be`, „Themes: …“ | 4 – Themes | Default, Dark mode, High contrast, High contrast dark, Slay, Switzerland, Terminal, Brasil, Atomic age, WTF, SUSE Linux, Windows 95, Windows XP, Ubuntu, Amiga; Auswahl im Profil und im Kommandofeld, `users.theme` + Cookie für die Login-Seite; axe-Kontrastprüfung (AAA für HC) und Screenshots pro Theme |
+| `311af9f`, `d39d84b` | 4 – Themes | zweiter und dritter Schwung Themes (siehe oben) |
+| `70a0057` | 6 – Wünsche | Alarme paginiert (50/Seite), Sortierung und Suche serverseitig |
+| `a942879` | 6 – Wünsche | Netze „sensitive“: nie Default-Netz, nur Einzelfreigabe (Migration 005) |
+| `e69dc3e` | 6 – Wünsche | Statusmeldung pro User bis 03:00 (Migration 006), sichtbar für alle |
+| `56b809e` | 6 – Wünsche | Backups auf der Config-Seite, Gesamt-Backup und -Restore aller Tabellen |
+| „Detection rules: …“ | 6 – Wünsche | Erkennungsregeln im Web-UI: an/aus, Schwere, Schwellen (`admin/rules.php`) |
 | `dd8fb66` | Security Monitoring | Regeln W1–W7/P1–P8/M1, Alarme mit Bündelung und Cooldown, Mails (SMTP, Digest, „Warst du das?“), GeoIP (DB-IP Lite, MMDB), KI-Triage via OpenRouter, `admin/alerts.php`, `admin/monitoring.php`, Config-Seite mit Herkunft und Secrets; Stand in [docs/plan-security-monitoring.md](docs/plan-security-monitoring.md) Kapitel 18 |
 
 Teststand lokal: Lint grün (php -l, shellcheck, PHPStan Level 5 ohne Baseline), **144 PHPUnit**, **114 E2E**.
@@ -148,6 +154,14 @@ git clone git@github.com:muqiuq/panag.git && cd panag
   Anstoss (`./run.sh monitor` oder POST `/monitor.php` mit `X-Monitor-Token: e2e-monitor-token`). Die
   `e2e-secret-*`-Werte sind Dummies; ein Test prüft, dass sie nie auf der Config-Seite erscheinen.
 - **Monitoring-Tests:** jeder E2E-Test legt eigenen User und Peer an (Dedupe-Schlüssel sind pro User, Cooldown 24 h).
+- **Kein mbstring im Image.** `mb_*`-Funktionen gibt es nur im Test-Container – in der App PCRE nutzen
+  (`status_message_length()`, `mb_substr_safe()`), sonst Fatal Error erst im E2E.
+- **Regel-Einstellungen sind pro Prozess gecacht** (`rule_settings()`); `run_monitor_cycle()` lädt sie neu (für
+  `bin/monitor.php --loop`), Unit-Tests, die `settings` leeren, rufen `rule_settings_reload()`.
+- **Gesamt-Restore im E2E** ist nur sicher, weil die Specs nacheinander laufen (1 Worker): `backup.spec.js` spielt
+  ein eben geladenes Backup wieder ein. Mit mehreren Workern würde das Daten anderer Tests zurücksetzen.
+- `.visually-hidden`-Elemente sind absolut positioniert: ohne `position: relative` am Scroll-Container
+  (`.table-responsive`) verbreitern sie die ganze Seite auf dem Handy.
   Unit-Tests ersetzen Router, Mailer, GeoIP und KI über `set_router()`, `set_mailer()`, `set_geoip()`,
   `set_ai_transport()`; Zeit wird als `$now` durchgereicht.
 - **PHP auf arm/v7 ist 32-bit** (`PHP_INT_SIZE` 4): Deshalb ist `php84-bcmath` im Image (MMDB-Werte > 2³¹).

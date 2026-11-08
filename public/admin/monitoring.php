@@ -76,10 +76,11 @@ $usage = ai_usage_today();
 $geoip = geoip_status();
 $settings = [
     ['Monitoring', MONITOR_ENABLED ? 'on' : 'off'],
-    ['Allowed countries', implode(', ', MONITOR_ALLOWED_COUNTRIES)],
-    ['Learning phase', MONITOR_LEARNING_DAYS . ' days'],
-    ['Rapid change window', format_duration_human(MONITOR_TRAVEL_WINDOW)],
-    ['Failed logins', MONITOR_FAILED_LOGINS . ' in ' . format_duration_human(MONITOR_FAILED_LOGINS_WINDOW)],
+    ['Allowed countries', rule_param_display('allowed_countries', rule_param('allowed_countries')) ?: 'none'],
+    ['Learning phase', rule_param('learning_days') . ' days'],
+    ['Rapid change window', rule_param_display('travel_window', rule_param('travel_window'))],
+    ['Failed logins', rule_param('failed_logins') . ' in ' . rule_param_display('failed_logins_window', rule_param('failed_logins_window'))],
+    ['Rules switched off', implode(', ', array_keys(array_filter(monitor_rule_reference(), fn($r) => !$r['enabled']))) ?: 'none'],
     ['Bundling / cooldown', format_duration_human(MONITOR_BUNDLE_WINDOW) . ' / ' . format_duration_human(MONITOR_COOLDOWN)],
     ['Daily digest', MONITOR_DIGEST_TIME],
     ['Mail users', MONITOR_NOTIFY_USERS ? 'yes' : 'no'],
@@ -123,7 +124,7 @@ include view_path('header');
   </div>
   <div class="col-lg-6">
     <div class="card shadow-sm h-100">
-      <div class="card-header">Effective settings <span class="text-muted small">– change via environment variables</span></div>
+      <div class="card-header">Effective settings <span class="text-muted small">– rules on the <a href="<?= e(url_for('admin/rules.php')) ?>">Detection rules</a> page, the rest via environment variables</span></div>
       <div class="card-body">
         <dl class="row small mb-2">
           <?php foreach ($settings as [$label, $value]): ?>

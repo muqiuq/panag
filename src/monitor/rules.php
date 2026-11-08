@@ -24,40 +24,47 @@ const MONITOR_RULES = [
 ];
 
 /**
- * Rule reference for the admin UI: when each rule fires, with the current settings filled in. Keep in sync with
- * the rule code below.
- * @return array<string, array{name: string, severity: list<string>, when: string, asks_user: bool}>
+ * Rule reference for the admin UI: when each rule fires, with the current settings filled in (admin/rules.php can
+ * change them). Keep in sync with the rule code below.
+ * @return array<string, array{name: string, severity: list<string>, when: string, asks_user: bool, enabled: bool, severity_override: ?string}>
  */
 function monitor_rule_reference(): array
 {
-    $learning = 'Only after the learning phase (' . (int)MONITOR_LEARNING_DAYS . ' days and ' . BASELINE_MIN_EVENTS . ' events per user).';
-    /** @var list<string> $allowed may be empty at runtime (env) */
-    $allowed = MONITOR_ALLOWED_COUNTRIES;
-    $countries = $allowed === [] ? 'none' : implode(', ', $allowed);
+    $p = fn(string $name) => rule_param_display($name, rule_param($name));
+    $learning = 'Only after the learning phase (' . $p('learning_days') . ' days and ' . BASELINE_MIN_EVENTS . ' events per user).';
+    $countries = $p('allowed_countries') === '' ? 'none' : $p('allowed_countries');
+    $asns = $p('hosting_asns') === '' ? '' : ' plus AS ' . $p('hosting_asns');
     $when = [
         'W1' => ['medium', 'A WireGuard connection comes from an allowed country this user has never connected from. ' . $learning . ' Before that, new countries are learned without an alert.'],
-        'W2' => ['high', 'A WireGuard connection comes from a country outside MONITOR_ALLOWED_COUNTRIES (' . $countries . ') that is not a known place of the user.'],
-        'W3' => ['high', 'The WireGuard endpoint moves to another country, not known for the user, within ' . format_duration_human(MONITOR_TRAVEL_WINDOW) . ' (MONITOR_TRAVEL_WINDOW) of the last connection.'],
-        'W4' => ['medium', 'A WireGuard connection comes from a data centre or VPN network (built-in list plus MONITOR_HOSTING_ASNS) the user has not confirmed.'],
-        'W5' => ['medium', 'The WireGuard endpoint switches at least 4 times between the same two addresses within 30 min – the key may be in use on two devices.'],
-        'W6' => ['medium', 'A user transfers more than 5× their usual daily volume, and at least 512 MB, over WireGuard in one day. ' . $learning],
+        'W2' => ['high', 'A WireGuard connection comes from a country outside the allowed countries (' . $countries . ') that is not a known place of the user.'],
+        'W3' => ['high', 'The WireGuard endpoint moves to another country, not known for the user, within ' . $p('travel_window') . ' of the last connection.'],
+        'W4' => ['medium', 'A WireGuard connection comes from a data centre or VPN network (built-in list' . $asns . ') the user has not confirmed.'],
+        'W5' => ['medium', 'The WireGuard endpoint switches at least ' . $p('switch_count') . ' times between the same two addresses within ' . $p('switch_window') . ' – the key may be in use on two devices.'],
+        'W6' => ['medium', 'A user transfers more than ' . $p('volume_factor') . '× their usual daily volume, and at least ' . $p('volume_min_mb') . ' MB, over WireGuard in one day. ' . $learning],
         'W7' => ['info', 'A WireGuard peer had a handshake in the last 10 min but belongs to no PANAG user.'],
-        'P1' => [['medium', 'high'], (int)MONITOR_FAILED_LOGINS . ' failed PANAG logins from one IP within ' . format_duration_human(MONITOR_FAILED_LOGINS_WINDOW) . ' (MONITOR_FAILED_LOGINS, MONITOR_FAILED_LOGINS_WINDOW). High when the login rate limit blocks the IP.'],
+        'P1' => [['medium', 'high'], $p('failed_logins') . ' failed PANAG logins from one IP within ' . $p('failed_logins_window') . '. High when the login rate limit blocks the IP.'],
         'P2' => ['high', 'A one-time password is used a second time (the login is blocked). The code may have been phished or observed.'],
         'P3' => ['low', 'A login or grant at an hour (±1 h) at which the user was not active in the last ' . BASELINE_DAYS . ' days. ' . $learning],
         'P4' => ['medium', 'A user grants a network they have not used in the last ' . BASELINE_DAYS . ' days. ' . $learning],
-        'P5' => ['medium', 'A user grants 5 single networks within 10 min.'],
+        'P5' => ['medium', 'A user grants ' . $p('burst_count') . ' single networks within ' . $p('burst_window') . '.'],
         'P6' => [['info', 'medium'], 'A sensitive admin action: ' . implode(', ', array_map(fn($s) => preg_match('/^[A-Z][a-z]/', $s) ? lcfirst($s) : $s, SENSITIVE_ACTIONS)) . '. Medium when someone is made admin.'],
         'P7' => ['high', 'A PANAG login up to 15 min after (or 10 min before) a WireGuard connection that triggered W1–W5. Joins the alert of that connection.'],
         'P8' => ['high', 'Someone enters a wrong token on the setup page.'],
-        'M1' => ['high', 'The monitor could not read the WireGuard peers from the router for 30 min.'],
+        'M1' => ['high', 'The monitor could not read the WireGuard peers from the router for ' . $p('router_down') . '.'],
         'U1' => ['high', 'The user answered "That wasn\'t me" to an alert. Their active access was revoked at once.'],
     ];
     $asksUser = ['W1', 'W2', 'W3', 'W4', 'W5', 'P2', 'P7'];
     $out = [];
     foreach (MONITOR_RULES as $code => $name) {
         [$severity, $text] = $when[$code];
-        $out[$code] = ['name' => $name, 'severity' => (array)$severity, 'when' => $text, 'asks_user' => in_array($code, $asksUser, true)];
+        $out[$code] = [
+            'name' => $name,
+            'severity' => (array)$severity,
+            'when' => $text,
+            'asks_user' => in_array($code, $asksUser, true),
+            'enabled' => rule_enabled($code),
+            'severity_override' => rule_severity($code),
+        ];
     }
     return $out;
 }
@@ -177,7 +184,7 @@ function monitor_poll_wireguard(int $now): array
             $asn = $geo['asn'] ?? null;
             $changedAt = $now;
             if ($user && $geo !== null && $geo['available']) {
-                $new = wg_endpoint_findings($user, $key, $geo, $endpointId, $now);
+                $new = rules_apply(wg_endpoint_findings($user, $key, $geo, $endpointId, $now)); // disabled rules do not count
                 if ($new) {
                     db()->prepare('UPDATE wg_endpoints SET suspicious = 1 WHERE id = :id')->execute([':id' => $endpointId]);
                 }
@@ -212,7 +219,7 @@ function wg_endpoint_findings(array $user, string $peerKey, array $geo, int $end
     $userId = (int)$user['id'];
     $country = $geo['country'] ?? '??';
     $known = place_is_known($userId, 'country', $country);
-    $allowed = in_array($country, array_map('strtoupper', MONITOR_ALLOWED_COUNTRIES), true);
+    $allowed = in_array($country, array_map('strtoupper', (array)rule_param('allowed_countries')), true);
     $knownCountries = known_countries($userId);
     $mature = baseline_mature(baseline_for($userId), $now);
     $asnType = is_hosting_asn($geo['asn']) ? 'hosting' : 'other';
@@ -241,7 +248,7 @@ function wg_endpoint_findings(array $user, string $peerKey, array $geo, int $end
     $prev = db()->prepare('SELECT country, last_seen FROM wg_endpoints WHERE user_id = :u AND id < :id AND country IS NOT NULL ORDER BY id DESC LIMIT 1');
     $prev->execute([':u' => $userId, ':id' => $endpointId]);
     $before = $prev->fetch(PDO::FETCH_ASSOC);
-    if ($before && $before['country'] !== $country && !$known && $now - (int)$before['last_seen'] <= MONITOR_TRAVEL_WINDOW) {
+    if ($before && $before['country'] !== $country && !$known && $now - (int)$before['last_seen'] <= (int)rule_param('travel_window')) {
         $minutes = (int)round(($now - (int)$before['last_seen']) / 60);
         $within = $minutes < 1 ? 'less than a minute' : $minutes . ' min';
         $findings[] = finding('W3', 'high', $userId, 'WireGuard endpoint of ' . user_label($user) . ' changed from ' . $before['country'] . ' to ' . $where . ' within ' . $within . '.',
@@ -257,11 +264,12 @@ function wg_endpoint_findings(array $user, string $peerKey, array $geo, int $end
 
     // W5: switching back and forth between two endpoints (same key on two devices?).
     $recent = db()->prepare('SELECT ip FROM wg_endpoints WHERE public_key = :k AND first_seen >= :t ORDER BY id');
-    $recent->execute([':k' => $peerKey, ':t' => $now - 1800]);
+    $switchWindow = (int)rule_param('switch_window');
+    $recent->execute([':k' => $peerKey, ':t' => $now - $switchWindow]);
     $ips = array_map('strval', $recent->fetchAll(PDO::FETCH_COLUMN));
-    if (count($ips) >= 5 && count(array_unique($ips)) === 2) {
-        $findings[] = finding('W5', 'medium', $userId, 'WireGuard endpoint of ' . user_label($user) . ' switched ' . (count($ips) - 1) . ' times between two addresses within 30 min – is the key used on two devices?',
-            ['count' => count($ips) - 1, 'window_minutes' => 30], $refs, $peerKey . '|' . intdiv($now, 1800), true,
+    if (count($ips) - 1 >= (int)rule_param('switch_count') && count(array_unique($ips)) === 2) {
+        $findings[] = finding('W5', 'medium', $userId, 'WireGuard endpoint of ' . user_label($user) . ' switched ' . (count($ips) - 1) . ' times between two addresses within ' . format_duration_human($switchWindow) . ' – is the key used on two devices?',
+            ['count' => count($ips) - 1, 'window_minutes' => intdiv($switchWindow, 60)], $refs, $peerKey . '|' . intdiv($now, $switchWindow), true,
             'Your WireGuard key seems to be in use on two devices at the same time.', $now);
     }
     return $findings;
@@ -278,7 +286,7 @@ function wg_volume_findings(array $user, string $peerKey, string $day, int $now)
     $stmt->execute([':k' => $peerKey, ':d' => $day]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     $typical = (float)($baseline['traffic_p90'] ?? 0);
-    $threshold = max(5 * $typical, 512 * 1024 * 1024);
+    $threshold = max((int)rule_param('volume_factor') * $typical, (int)rule_param('volume_min_mb') * 1024 * 1024);
     if (!$row || (int)$row['alerted'] === 1 || (float)$row['bytes'] <= $threshold) {
         return [];
     }
@@ -299,6 +307,8 @@ const SENSITIVE_ACTIONS = [
     'user_role_changed' => 'Role changed',
     'network_updated' => 'Network changed',
     'network_deleted' => 'Network deleted',
+    'monitor_rules_changed' => 'Detection rules changed',
+    'full_backup_restored' => 'Full backup restored',
     'setup_admin_created' => 'Admin created via setup',
     'cli_admin_created' => 'Admin created on the command line',
 ];
@@ -338,12 +348,13 @@ function audit_row_findings(array $row, array $users, int $now): array
         case 'login_failed':
             $target = $user ?? fetch_user_by_user_ip((string)$row['user_ip']);
             $count = db()->prepare("SELECT COUNT(*) FROM audit_log WHERE action = 'login_failed' AND user_ip = :ip AND created_at BETWEEN :from AND :to AND id <= :id");
-            $count->execute([':ip' => $row['user_ip'], ':from' => $at - MONITOR_FAILED_LOGINS_WINDOW, ':to' => $at, ':id' => $row['id']]);
+            $window = (int)rule_param('failed_logins_window');
+            $count->execute([':ip' => $row['user_ip'], ':from' => $at - $window, ':to' => $at, ':id' => $row['id']]);
             $n = (int)$count->fetchColumn();
-            if ($n === MONITOR_FAILED_LOGINS) {
+            if ($n === (int)rule_param('failed_logins')) {
                 $who = $target ? user_label($target) : 'IP ' . $row['user_ip'];
-                $findings[] = finding('P1', 'medium', $target ? (int)$target['id'] : null, $n . ' failed PANAG logins for ' . $who . ' within ' . format_duration_human(MONITOR_FAILED_LOGINS_WINDOW) . '.',
-                    ['count' => $n, 'window_minutes' => intdiv(MONITOR_FAILED_LOGINS_WINDOW, 60)], $refs, (string)$row['user_ip'], false, null, $at);
+                $findings[] = finding('P1', 'medium', $target ? (int)$target['id'] : null, $n . ' failed PANAG logins for ' . $who . ' within ' . format_duration_human($window) . '.',
+                    ['count' => $n, 'window_minutes' => intdiv($window, 60)], $refs, (string)$row['user_ip'], false, null, $at);
             }
             break;
         case 'login_rate_limited':
@@ -410,10 +421,11 @@ function activity_findings(array $row, array $user, array $refs, int $now): arra
             }
         }
         $burst = db()->prepare("SELECT COUNT(*) FROM audit_log WHERE user_id = :u AND action = 'extended_access_granted' AND created_at BETWEEN :f AND :t AND id <= :id");
-        $burst->execute([':u' => $userId, ':f' => $at - 600, ':t' => $at, ':id' => $row['id']]);
+        $burstWindow = (int)rule_param('burst_window');
+        $burst->execute([':u' => $userId, ':f' => $at - $burstWindow, ':t' => $at, ':id' => $row['id']]);
         $n = (int)$burst->fetchColumn();
-        if ($n === 5) {
-            $findings[] = finding('P5', 'medium', $userId, user_label($user) . ' granted ' . $n . ' single networks within 10 min.', ['count' => $n, 'window_minutes' => 10], $refs, (string)intdiv($at, 600), false, null, $at);
+        if ($n === (int)rule_param('burst_count')) {
+            $findings[] = finding('P5', 'medium', $userId, user_label($user) . ' granted ' . $n . ' single networks within ' . format_duration_human($burstWindow) . '.', ['count' => $n, 'window_minutes' => intdiv($burstWindow, 60)], $refs, (string)intdiv($at, $burstWindow), false, null, $at);
         }
     }
 
@@ -449,7 +461,7 @@ function monitor_health_findings(int $now): array
     $ok = (int)monitor_state('monitor.last_poll_ok_at', 0);
     $first = (int)monitor_state('monitor.first_run_at', $now);
     $since = $ok > 0 ? $ok : $first;
-    if ($now - $since < 1800) {
+    if ($now - $since < (int)rule_param('router_down')) {
         return [];
     }
     $error = (string)monitor_state('monitor.last_poll_error', 'unknown error');

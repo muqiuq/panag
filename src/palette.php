@@ -26,13 +26,15 @@ function palette_commands(array $user): array
         ['manage_networks', 'Networks', 'admin/networks.php', 'subnets'],
         ['admin', 'Alerts', 'admin/alerts.php', 'security monitoring incidents'],
         ['admin', 'Monitoring', 'admin/monitoring.php', 'geoip wireguard mail ai security'],
+        ['admin', 'Detection rules', 'admin/rules.php', 'monitoring alerts thresholds security'],
+        ['view_config', 'Backup', 'admin/config.php#backup', 'restore export import'],
         ['view_logs', 'Logs', 'admin/logs.php', 'audit'],
         ['view_status', 'Status', 'admin/status.php', 'router wireguard'],
         ['view_config', 'Config', 'admin/config.php', 'environment settings'],
     ];
     foreach ($pages as [$permission, $name, $path, $keywords]) {
         if (can($user, $permission)) {
-            $commands[] = ['id' => 'go-' . strtolower($name), 'label' => 'Go to ' . $name, 'keywords' => $keywords . ' admin', 'hint' => 'Admin', 'path' => $path];
+            $commands[] = ['id' => 'go-' . strtolower(str_replace(' ', '-', $name)), 'label' => 'Go to ' . $name, 'keywords' => $keywords . ' admin', 'hint' => 'Admin', 'path' => $path];
         }
     }
     return $commands;

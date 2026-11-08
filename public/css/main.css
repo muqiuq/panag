@@ -93,6 +93,11 @@ footer {
 
 .otp-qr img { max-width: 100%; height: auto; }
 
+/* Detection rules (admin/rules.php) */
+.rule-params { min-width: 12rem; }
+.rule-param + .rule-param { margin-top: 0.5rem; }
+.rule-off .fw-semibold { text-decoration: line-through; }
+
 /* Status messages: at most 100 characters, but possibly one long word – they must wrap anywhere. */
 .status-message { overflow-wrap: anywhere; word-break: normal; }
 .col-status { min-width: 10rem; max-width: 22rem; }

@@ -1,6 +1,6 @@
 <?php
 // Networks of hosting, cloud and commercial VPN providers (rule W4). Connecting from such a network is
-// unusual for a person and typical for proxies or rented servers. Extend via MONITOR_HOSTING_ASNS.
+// unusual for a person and typical for proxies or rented servers. Extend via the W4 setting on admin/rules.php (default MONITOR_HOSTING_ASNS).
 const HOSTING_ASNS = [
     16509, 14618, 8987,          // Amazon AWS
     15169, 396982, 19527,        // Google Cloud
@@ -34,5 +34,5 @@ function is_hosting_asn(?int $asn): bool
     if ($asn === null) {
         return false;
     }
-    return in_array($asn, HOSTING_ASNS, true) || in_array((string)$asn, array_map('strval', MONITOR_HOSTING_ASNS), true);
+    return in_array($asn, HOSTING_ASNS, true) || in_array((string)$asn, array_map('strval', (array)rule_param('hosting_asns')), true);
 }

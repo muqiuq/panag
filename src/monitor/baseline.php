@@ -1,7 +1,7 @@
 <?php
 // Per-user baseline over the last 90 days: when the user is usually active, which networks are used,
 // typical data volume. Recomputed once a day. Behaviour rules only alert once the baseline is mature
-// (MONITOR_LEARNING_DAYS and at least BASELINE_MIN_EVENTS events).
+// (learning phase: rule parameter learning_days, default MONITOR_LEARNING_DAYS, and at least BASELINE_MIN_EVENTS events).
 
 const BASELINE_DAYS = 90;
 const BASELINE_MIN_EVENTS = 20;
@@ -82,7 +82,7 @@ function baseline_mature(?array $baseline, int $now): bool
 {
     return $baseline !== null
         && $baseline['first_seen'] !== null
-        && $now - (int)$baseline['first_seen'] >= MONITOR_LEARNING_DAYS * 86400
+        && $now - (int)$baseline['first_seen'] >= (int)rule_param('learning_days') * 86400
         && (int)$baseline['events'] >= BASELINE_MIN_EVENTS;
 }
 

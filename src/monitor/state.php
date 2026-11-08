@@ -1,6 +1,7 @@
 <?php
 // Runtime state of the monitor (cursor, last run, GeoIP update, AI usage) in the `settings` table.
-// Configuration never goes here – it comes from environment variables (src/config.php).
+// Configuration comes from environment variables (src/config.php) – except the detection rule settings edited on
+// admin/rules.php (key monitor.rules, src/monitor/rule_settings.php).
 
 /** @param mixed $default @return mixed */
 function monitor_state(string $key, $default = null)

@@ -516,6 +516,7 @@ Der Heartbeat an ein Drittsystem folgt später. Der Plan hält ihn nur nicht unn
 - **32-bit:** Byte-Zähler werden als Float gerechnet; auf 32-bit-PHP blieb W6 sonst bei 2 GiB stehen.
 - **UTF-8 ohne mbstring:** Kürzungen sind UTF-8-sicher; die Runtime hat kein mbstring.
 - **IP-Retention:** Sie gilt auch für den gespeicherten aktuellen Endpoint und für Peers, die vom Router verschwunden sind.
+- **Regeln im Web-UI (2026-11-08, Wunsch des Users):** `admin/rules.php` schaltet Regeln ab, überschreibt die Schwere und ändert Schwellen (`src/monitor/rule_settings.php`, gespeichert in `settings['monitor.rules']`). Die Env-Variablen aus Kapitel 13 (`MONITOR_ALLOWED_COUNTRIES`, `MONITOR_LEARNING_DAYS`, `MONITOR_TRAVEL_WINDOW`, `MONITOR_HOSTING_ASNS`, `MONITOR_FAILED_LOGINS`, `MONITOR_FAILED_LOGINS_WINDOW`) sind nur noch Defaults. Neu einstellbar: W5 (Wechsel/Fenster), W6 (Faktor/Mindest-MB), P5 (Anzahl/Fenster), M1 (Dauer). U1 lässt sich nicht abschalten. Regeländerungen und ein Gesamt-Restore zählen zu P6.
 
 **Offen:**
 - **Phase 0 am hEX S:**
