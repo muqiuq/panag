@@ -22,10 +22,12 @@ final class ThemesTest extends TestCase
 
     public function testTheRequestedThemesExist(): void
     {
-        $this->assertSame(['default', 'dark', 'high-contrast', 'high-contrast-dark', 'slay'], array_keys(THEMES));
+        $this->assertSame(['default', 'dark', 'high-contrast', 'high-contrast-dark', 'slay', 'switzerland', 'terminal', 'brasil', 'atomic-age', 'wtf'], array_keys(THEMES));
         $this->assertTrue(theme_is_dark('dark'));
         $this->assertTrue(theme_is_dark('high-contrast-dark'));
+        $this->assertTrue(theme_is_dark('terminal'));
         $this->assertFalse(theme_is_dark('slay'));
+        $this->assertFalse(theme_is_dark('wtf'));
     }
 
     public function testEveryThemeHasStyles(): void

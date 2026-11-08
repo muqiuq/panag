@@ -14,6 +14,11 @@ const THEMES = {
   'high-contrast': { label: 'High contrast', dark: false, aaa: true },
   'high-contrast-dark': { label: 'High contrast dark', dark: true, aaa: true },
   slay: { label: 'Slay', dark: false },
+  switzerland: { label: 'Switzerland', dark: false },
+  terminal: { label: 'Terminal', dark: true },
+  brasil: { label: 'Brasil', dark: false },
+  'atomic-age': { label: 'Atomic age', dark: false },
+  wtf: { label: 'WTF', dark: false },
 };
 const ADMIN_STATE = 'tests/e2e/.auth/admin.json';
 
@@ -145,6 +150,14 @@ test.describe('every theme on the main pages: screenshots and contrast', () => {
         const result = await new AxeBuilder({ page: target }).withRules(rules).analyze();
         for (const v of result.violations) {
           for (const node of v.nodes) problems.push(`${name}: ${v.id} ${node.target.join(' ')} – ${node.failureSummary.split('\n').pop().trim()}`);
+        }
+        // axe files text in exactly its background colour as "incomplete" (equalRatio), not as a violation.
+        for (const v of result.incomplete) {
+          for (const node of v.nodes) {
+            if (node.any.some((c) => c.data && (c.data.messageKey === 'equalRatio' || c.data.contrastRatio === 1))) {
+              problems.push(`${name}: ${v.id} ${node.target.join(' ')} – invisible text (1:1)`);
+            }
+          }
         }
       };
       for (const path of pages) {

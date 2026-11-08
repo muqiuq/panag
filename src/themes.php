@@ -9,6 +9,11 @@ const THEMES = [
     'high-contrast' => ['label' => 'High contrast', 'description' => 'Black on white, strong borders and focus outlines (WCAG AAA)', 'dark' => false],
     'high-contrast-dark' => ['label' => 'High contrast dark', 'description' => 'White and yellow on black (WCAG AAA)', 'dark' => true],
     'slay' => ['label' => 'Slay', 'description' => 'Violet glam with a pride stripe ✨', 'dark' => false],
+    'switzerland' => ['label' => 'Switzerland', 'description' => 'Swiss red and white, Helvetica, flat and strict', 'dark' => false],
+    'terminal' => ['label' => 'Terminal', 'description' => 'Green on black, monospace, $ prompts', 'dark' => true],
+    'brasil' => ['label' => 'Brasil', 'description' => 'Verde, amarelo e azul – green, yellow and blue', 'dark' => false],
+    'atomic-age' => ['label' => 'Atomic age', 'description' => '1950s retro-futurism: teal, mustard and starbursts', 'dark' => false],
+    'wtf' => ['label' => 'WTF', 'description' => 'Comic Sans, clashing neon, wonky cards. Why? Why not.', 'dark' => false],
 ];
 
 const THEME_COOKIE = 'panag_theme';

@@ -198,9 +198,9 @@ include view_path('header');
       <input type="hidden" name="action" value="save_theme">
       <fieldset>
         <legend class="visually-hidden">Theme</legend>
-        <div class="row g-3">
+        <div class="row row-cols-2 row-cols-md-3 row-cols-xl-5 g-3">
           <?php foreach (THEMES as $key => $t): ?>
-            <div class="col-6 col-md-4 col-xl">
+            <div class="col">
               <input type="radio" class="btn-check" name="theme" id="theme-<?= e($key) ?>" value="<?= e($key) ?>"
                 data-dark="<?= $t['dark'] ? '1' : '0' ?>" aria-describedby="theme-desc-<?= e($key) ?>" <?= $key === $userTheme ? 'checked' : '' ?>>
               <label class="theme-tile" for="theme-<?= e($key) ?>">
