@@ -23,10 +23,67 @@ final class DefaultNetworksTest extends TestCase
         return fetch_user_by_user_ip($ip);
     }
 
-    private function network(string $name, int $level, string $address = '10.0.0.0/24'): int
+    private function network(string $name, int $level, string $address = '10.0.0.0/24', bool $sensitive = false): int
     {
-        save_network(null, $name, $level, $address);
+        save_network(null, $name, $level, $address, $sensitive);
         return (int)db()->query('SELECT MAX(id) FROM networks')->fetchColumn();
+    }
+
+    public function testSensitiveNetworksAreNeverDefaults(): void
+    {
+        $admin = $this->user('10.0.0.1', 15, 'admin');
+        $user = $this->user('10.0.0.2', 10);
+        $office = $this->network('Office', 1);
+        $core = $this->network('Core', 5, '10.255.0.0/28', true);
+
+        $only = change_default_networks($admin, $user, [$core], true);
+        $this->assertSame(422, $only['status']);
+        $this->assertStringContainsString('Core is a sensitive network', $only['message']);
+
+        $mixed = change_default_networks($admin, $user, [$office, $core], true);
+        $this->assertSame([$office], $mixed['changed']);
+        $this->assertSame([$core], $mixed['rejected']);
+        $this->assertSame([$office], get_user_default_network_ids((int)$user['id']));
+
+        set_user_default_networks((int)$user['id'], [$office, $core]);
+        $this->assertSame([$office], get_user_default_network_ids((int)$user['id']), 'also the bulk setter skips them');
+
+        $this->assertTrue(network_can_be_default($user, fetch_network_by_id($office)));
+        $this->assertFalse(network_can_be_default($user, fetch_network_by_id($core)));
+        $this->assertTrue(change_default_networks($admin, $user, [$core], false)['status'] === 200, 'removing is always allowed');
+    }
+
+    public function testMarkingANetworkSensitiveRemovesItFromAllDefaults(): void
+    {
+        $admin = $this->user('10.0.0.1', 15, 'admin');
+        $a = $this->user('10.0.0.2', 10);
+        $b = $this->user('10.0.0.3', 10);
+        $vpn = $this->network('VPN', 1);
+        change_default_networks($admin, $a, [$vpn], true);
+        change_default_networks($admin, $b, [$vpn], true);
+
+        $this->assertSame(0, save_network($vpn, 'VPN', 1, '10.0.0.0/24'), 'not sensitive: nothing removed');
+        $this->assertSame(2, save_network($vpn, 'VPN', 1, '10.0.0.0/24', true));
+        $this->assertSame([], get_user_default_network_ids((int)$a['id']));
+        $this->assertSame([], get_user_default_network_ids((int)$b['id']));
+        $this->assertTrue(network_is_sensitive(fetch_network_by_id($vpn)));
+
+        save_network($vpn, 'VPN', 1, '10.0.0.0/24', false);
+        $this->assertFalse(network_is_sensitive(fetch_network_by_id($vpn)), 'the flag can be removed again');
+    }
+
+    public function testNetworkBackupKeepsTheSensitiveFlag(): void
+    {
+        require_once __DIR__ . '/../../src/backup.php';
+        $this->network('Office', 1);
+        $this->network('Core', 5, '10.255.0.0/28', true);
+        $json = export_networks_json();
+        $this->assertSame([false, true], array_column(json_decode($json, true), 'sensitive'));
+
+        $this->assertSame(2, import_networks_json($json));
+        $flags = db()->query('SELECT name, sensitive FROM networks ORDER BY name')->fetchAll(PDO::FETCH_KEY_PAIR);
+        $this->assertSame(['Core' => 1, 'Office' => 0], array_map('intval', $flags));
+        $this->assertSame(1, import_networks_json((string)json_encode([['name' => 'Old', 'address' => '10.1.0.0/24', 'accesslevel' => 1]])), 'old exports without the flag still import');
     }
 
     public function testWhoMayEditWhoseDefaults(): void

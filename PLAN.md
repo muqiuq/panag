@@ -446,7 +446,7 @@ Vom User nachgeschoben, umgesetzt in dieser Reihenfolge, je ein Commit:
 |---|--------|-------|
 | 1 | Themes SUSE Linux, Windows 95, Windows XP, Ubuntu, Amiga | ✓ (siehe Phase 4) |
 | 2 | Paginierung der Alarme | ✓ 50 pro Seite; Sortierung (Zeit, Schwere, User, Status) und Suche (User, Regel, Text) laufen serverseitig wie beim Audit-Log, Statusfilter als gebundener Parameter. Gemeinsames Partial `views/partials/pagination.php` (auch fürs Audit-Log). |
-| 3 | Netze als „sensitive“ markieren: nie Default-Netz | offen |
+| 3 | Netze als „sensitive“ markieren: nie Default-Netz | ✓ Migration 005 (`networks.sensitive`). Checkbox im Netz-Dialog; beim Markieren wird das Netz aus allen Default-Listen entfernt (Meldung und Log mit Anzahl). `change_default_networks` lehnt es ab (422), `set_user_default_networks` und „Grant default access“ überspringen es. Profil/User-Seite zeigen es gesperrt mit Hinweis, die Matrix sperrt die Spalte, das Dashboard zeigt „sensitive“. Einzelfreigabe bleibt möglich. Export/Import der Netze trägt das Flag (alte Exporte ohne Flag gehen weiter). |
 | 4 | Statusmeldung pro User, gültig bis 03:00 | offen |
 | 5 | Backups auf die Config-Seite, Gesamt-Backup und -Restore | offen |
 | 6 | Erkennungsregeln im Web-UI konfigurierbar | offen |

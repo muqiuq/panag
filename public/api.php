@@ -52,6 +52,7 @@ function handle_default_access(array $user): void
     if (empty($nets)) {
         json_response(false, 'No default networks configured.');
     }
+    $nets = array_values(array_filter($nets, fn($n) => !network_is_sensitive($n))); // never stored, but never granted either
     $eligible = array_values(array_filter($nets, fn($n) => user_can_access_network($user, $n)));
     $skipped = array_column(array_filter($nets, fn($n) => !user_can_access_network($user, $n)), 'name');
     if (empty($eligible)) {

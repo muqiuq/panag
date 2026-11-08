@@ -35,21 +35,23 @@ $dnLevel = (int)$dnUser['accesslevel'];
         <?php foreach ($dnNetworks as $n):
           $nid = (int)$n['id'];
           $eligible = user_can_access_network($dnUser, $n);
+          $sensitive = network_is_sensitive($n);
           $selected = isset($dnSelected[$nid]);
           $toggleId = $dnId . '-' . $nid;
         ?>
-          <tr data-network-id="<?= $nid ?>" data-eligible="<?= $eligible ? '1' : '0' ?>" data-selected="<?= $selected ? '1' : '0' ?>"
+          <tr data-network-id="<?= $nid ?>" data-eligible="<?= $eligible ? '1' : '0' ?>" data-sensitive="<?= $sensitive ? '1' : '0' ?>" data-selected="<?= $selected ? '1' : '0' ?>"
               <?= $eligible ? '' : 'class="network-locked" title="Requires L' . (int)$n['accesslevel'] . ' – ' . e($dnUser['username']) . ' has L' . $dnLevel . '"' ?>
               <?= !$eligible && !$selected ? 'hidden' : '' ?>>
             <td data-sort-value="<?= $selected ? '1' : '0' ?>">
               <div class="form-check form-switch mb-0">
                 <input class="form-check-input" type="checkbox" role="switch" id="<?= $toggleId ?>" data-dn-toggle aria-label="Default: <?= e($n['name']) ?>"
-                       <?= $selected ? 'checked' : '' ?> <?= !$eligible && !$selected ? 'disabled' : '' ?>>
+                       <?= $selected ? 'checked' : '' ?> <?= ($sensitive || !$eligible) && !$selected ? 'disabled' : '' ?>>
               </div>
             </td>
             <td>
               <label for="<?= $toggleId ?>"><?= e($n['name']) ?></label>
               <span class="badge text-bg-warning ms-1" data-dn-invalid <?= $selected && !$eligible ? '' : 'hidden' ?>>Above level – not granted</span>
+              <?php if ($sensitive): ?><span class="badge bg-body-tertiary text-body border ms-1" title="Sensitive networks are never default networks – grant them one at a time">sensitive – single grants only</span><?php endif; ?>
             </td>
             <td><code><?= e($n['address']) ?></code></td>
             <td data-sort-value="<?= (int)$n['accesslevel'] ?>">L<?= (int)$n['accesslevel'] ?></td>

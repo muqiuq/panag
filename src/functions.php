@@ -399,6 +399,8 @@ function get_user_default_network_ids(int $userId): array
 
 function set_user_default_networks(int $userId, array $networkIds): void
 {
+    $sensitive = array_flip(array_map('intval', db()->query('SELECT id FROM networks WHERE sensitive = 1')->fetchAll(PDO::FETCH_COLUMN) ?: []));
+    $networkIds = array_values(array_filter($networkIds, fn($nid) => !isset($sensitive[(int)$nid])));
     $pdo = db();
     $pdo->beginTransaction();
     $pdo->prepare('DELETE FROM user_to_network WHERE user_id = :uid')->execute([':uid' => $userId]);
@@ -778,16 +780,43 @@ function remove_address_list_entries(string $userIp): array
     ];
 }
 
-function save_network(?int $id, string $name, int $accesslevel, string $address): void
+/**
+ * Create or update a network. A sensitive network is never a default network: marking it removes it from the
+ * default networks of every user.
+ * @return int number of default assignments removed
+ */
+function save_network(?int $id, string $name, int $accesslevel, string $address, bool $sensitive = false): int
 {
     $level = max(0, min($accesslevel, (int)MAX_ACCESS_LEVEL));
+    $pdo = db();
+    $pdo->beginTransaction();
     if ($id === null) {
-        $stmt = db()->prepare('INSERT INTO networks (name, accesslevel, address) VALUES (:n, :a, :addr)');
-        $stmt->execute([':n' => $name, ':a' => $level, ':addr' => $address]);
+        $stmt = $pdo->prepare('INSERT INTO networks (name, accesslevel, address, sensitive) VALUES (:n, :a, :addr, :s)');
+        $stmt->execute([':n' => $name, ':a' => $level, ':addr' => $address, ':s' => (int)$sensitive]);
+        $id = (int)$pdo->lastInsertId();
     } else {
-        $stmt = db()->prepare('UPDATE networks SET name = :n, accesslevel = :a, address = :addr WHERE id = :id');
-        $stmt->execute([':n' => $name, ':a' => $level, ':addr' => $address, ':id' => $id]);
+        $stmt = $pdo->prepare('UPDATE networks SET name = :n, accesslevel = :a, address = :addr, sensitive = :s WHERE id = :id');
+        $stmt->execute([':n' => $name, ':a' => $level, ':addr' => $address, ':s' => (int)$sensitive, ':id' => $id]);
     }
+    $removed = 0;
+    if ($sensitive) {
+        $del = $pdo->prepare('DELETE FROM user_to_network WHERE network_id = :id');
+        $del->execute([':id' => $id]);
+        $removed = $del->rowCount();
+    }
+    $pdo->commit();
+    return $removed;
+}
+
+function network_is_sensitive(array $network): bool
+{
+    return !empty($network['sensitive']);
+}
+
+/** Can $network be one of the default networks of $user? Level high enough and not sensitive. */
+function network_can_be_default(array $user, array $network): bool
+{
+    return user_can_access_network($user, $network) && !network_is_sensitive($network);
 }
 
 function delete_network(int $id): void

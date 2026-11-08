@@ -16,6 +16,7 @@
       field('name').value = d.name || '';
       field('address').value = d.address || '';
       field('accesslevel').value = d.level || '0';
+      field('sensitive').checked = d.sensitive === '1';
       document.getElementById('networkModalTitle').textContent = d.id ? `Edit ${d.name}` : 'Add network';
     });
     networkModal.addEventListener('shown.bs.modal', () => field('name').focus());

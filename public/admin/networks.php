@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $name = trim((string)($_POST['name'] ?? ''));
         $address = trim((string)($_POST['address'] ?? ''));
         $level = max(0, min((int)($_POST['accesslevel'] ?? 0), (int)MAX_ACCESS_LEVEL));
+        $sensitive = !empty($_POST['sensitive']);
         $existing = $id > 0 ? fetch_network_by_id($id) : null;
         if ($id > 0 && !$existing) {
             $back('danger', 'Network not found.');
@@ -31,9 +32,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($errors) {
             $back('danger', 'Network not saved: ' . implode(' ', $errors));
         }
-        save_network($existing ? $id : null, $name, $level, $address);
-        log_event($existing ? 'network_updated' : 'network_created', $name . ' (' . $address . ', L' . $level . ') by ' . $admin['username'], (int)$admin['id'], $admin['username'], $admin['user_ip']);
-        $back('success', 'Network ' . $name . ' saved.');
+        $removed = save_network($existing ? $id : null, $name, $level, $address, $sensitive);
+        log_event($existing ? 'network_updated' : 'network_created', $name . ' (' . $address . ', L' . $level . ($sensitive ? ', sensitive' : '') . ') by ' . $admin['username']
+            . ($removed ? ' – removed from the default networks of ' . $removed . ' user(s)' : ''), (int)$admin['id'], $admin['username'], $admin['user_ip']);
+        $back('success', 'Network ' . $name . ' saved.' . ($removed ? ' It is sensitive now and was removed from the default networks of ' . $removed . ' user(s).' : ''));
     } elseif ($action === 'delete') {
         $network = fetch_network_by_id((int)($_POST['id'] ?? 0));
         if ($network) {
@@ -105,16 +107,20 @@ include view_path('header');
           <tbody>
             <?php foreach ($networks as $n): $nid = (int)$n['id']; $count = $counts[$nid] ?? 0; ?>
               <tr data-network-id="<?= $nid ?>">
-                <td><?= e($n['name']) ?></td>
+                <td><?= e($n['name']) ?><?php if (network_is_sensitive($n)): ?> <span class="badge text-bg-warning" title="Never a default network – single grants only">sensitive</span><?php endif; ?></td>
                 <td><code><?= e($n['address']) ?></code></td>
                 <td data-sort-value="<?= (int)$n['accesslevel'] ?>">L<?= (int)$n['accesslevel'] ?></td>
-                <td data-sort-value="<?= $count ?>">
+                <td data-sort-value="<?= network_is_sensitive($n) ? -1 : $count ?>">
+                  <?php if (network_is_sensitive($n)): ?>
+                    <span class="text-muted small">never (sensitive)</span>
+                  <?php else: ?>
                   <button type="button" class="btn btn-sm btn-link p-0" data-bs-toggle="modal" data-bs-target="#defaultUsersModal" data-network-defaults="<?= $nid ?>"
                           aria-label="Default users of <?= e($n['name']) ?>"><span data-count><?= $count ?></span> user<?= $count === 1 ? '' : 's' ?></button>
+                  <?php endif; ?>
                 </td>
                 <td class="text-end text-nowrap">
                   <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#networkModal"
-                          data-id="<?= $nid ?>" data-name="<?= e($n['name']) ?>" data-address="<?= e($n['address']) ?>" data-level="<?= (int)$n['accesslevel'] ?>"
+                          data-id="<?= $nid ?>" data-name="<?= e($n['name']) ?>" data-address="<?= e($n['address']) ?>" data-level="<?= (int)$n['accesslevel'] ?>" data-sensitive="<?= network_is_sensitive($n) ? '1' : '0' ?>"
                           aria-label="Edit <?= e($n['name']) ?>">Edit</button>
                   <form method="post" class="d-inline" data-confirm="Delete network <?= e($n['name']) ?>? It is removed from the default networks of <?= $count ?> user(s).">
                     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
@@ -191,6 +197,11 @@ include view_path('header');
           <label class="form-label" for="net-level">Access level</label>
           <input id="net-level" type="number" name="accesslevel" class="form-control" min="0" max="<?= (int)MAX_ACCESS_LEVEL ?>" value="0" required>
           <div class="form-text">Users with this level or higher can request the network.</div>
+        </div>
+        <div class="form-check mt-3 mb-0">
+          <input class="form-check-input" type="checkbox" name="sensitive" value="1" id="net-sensitive" aria-describedby="net-sensitive-help">
+          <label class="form-check-label" for="net-sensitive">Sensitive network</label>
+          <div class="form-text" id="net-sensitive-help">Never a default network – users grant it one at a time (extended duration). Marking it removes it from all default networks.</div>
         </div>
       </div>
       <div class="modal-footer">

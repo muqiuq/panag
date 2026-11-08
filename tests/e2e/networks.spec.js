@@ -78,3 +78,49 @@ test('delete a network', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText(`Network ${name} deleted`);
   await expect(row(page, name)).toHaveCount(0);
 });
+
+test('sensitive networks: marking one removes it from all defaults, it can never be added again', async ({ page }) => {
+  const name = unique('E2E Sensitive');
+  await addNetwork(page, name, '10.198.0.0/24', 1);
+  await expect(page.getByRole('alert')).toContainText(`Network ${name} saved`);
+  const networkId = Number(await row(page, name).getAttribute('data-network-id'));
+
+  // a default of Login Tester (L1) first
+  await row(page, name).getByRole('button', { name: `Default users of ${name}` }).click();
+  const dialog = page.getByRole('dialog', { name: `Default for: ${name}` });
+  await dialog.getByLabel(/Login Tester/).check();
+  await expect(row(page, name).getByRole('button', { name: `Default users of ${name}` })).toHaveText('1 user');
+  await dialog.getByRole('button', { name: 'Close' }).first().click();
+  await expect(dialog).toBeHidden();
+
+  // mark it sensitive
+  await row(page, name).getByRole('button', { name: `Edit ${name}` }).click();
+  const edit = page.getByRole('dialog', { name: `Edit ${name}` });
+  await expect(edit.getByLabel('Sensitive network')).not.toBeChecked();
+  await edit.getByLabel('Sensitive network').check();
+  await edit.getByRole('button', { name: 'Save network' }).click();
+  await expect(page.getByRole('alert')).toContainText('removed from the default networks of 1 user(s)');
+  await expect(row(page, name)).toContainText('sensitive');
+  await expect(row(page, name)).toContainText('never (sensitive)');
+  await row(page, name).getByRole('button', { name: `Edit ${name}` }).click();
+  const again = page.getByRole('dialog', { name: `Edit ${name}` });
+  await expect(again.getByLabel('Sensitive network')).toBeChecked();
+  await again.getByRole('button', { name: 'Cancel' }).click();
+  await expect(again).toBeHidden();
+
+  // locked in the matrix, refused by the API
+  await page.goto('/admin/matrix.php');
+  const cell = page.getByRole('button', { name: `${name} for Login Tester` });
+  await expect(cell).toBeDisabled();
+  await expect(cell).toHaveAttribute('title', /Sensitive network/);
+  const userId = Number(await cell.getAttribute('data-user-id'));
+  const resp = await page.evaluate(([uid, nid]) => window.Panag.api('setDefaultNetworks', { user_id: uid, network_ids: [nid], enabled: true }), [userId, networkId]);
+  expect(resp.httpStatus).toBe(422);
+  expect(resp.message).toContain('is a sensitive network');
+
+  // still grantable on its own: the dashboard shows it with a hint, not as a default
+  await page.goto('/index.php');
+  const dash = page.locator('#networksTable tbody tr').filter({ hasText: name });
+  await expect(dash).toContainText('sensitive');
+  await expect(dash.getByRole('button', { name: `Grant ${name}` })).toBeEnabled();
+});

@@ -26,7 +26,7 @@ include view_path('header');
     <p class="small text-muted">
       Click a cell to add or remove a default network – changes are saved immediately.
       <span class="matrix-legend">✓</span> default ·
-      <span class="matrix-legend">–</span> level too low ·
+      <span class="matrix-legend">–</span> level too low or sensitive network (single grants only) ·
       <span class="matrix-legend matrix-legend-invalid">!</span> above the level, not granted (click to remove)
     </p>
     <?php if (empty($users) || empty($networks)): ?>
@@ -41,7 +41,7 @@ include view_path('header');
               <?php foreach ($networks as $n): ?>
                 <th data-sort="number" class="matrix-net" data-network-col="<?= (int)$n['id'] ?>" data-filter-text="<?= e($n['name'] . ' ' . $n['address']) ?>"
                     data-sort-key="net-<?= (int)$n['id'] ?>" title="<?= e($n['address']) ?> · requires L<?= (int)$n['accesslevel'] ?>">
-                  <span class="d-block"><?= e($n['name']) ?></span><small class="fw-normal text-muted">L<?= (int)$n['accesslevel'] ?></small>
+                  <span class="d-block"><?= e($n['name']) ?></span><small class="fw-normal text-muted">L<?= (int)$n['accesslevel'] ?><?= network_is_sensitive($n) ? ' · sensitive' : '' ?></small>
                 </th>
               <?php endforeach; ?>
             </tr>
@@ -57,14 +57,17 @@ include view_path('header');
                 <?php foreach ($networks as $n):
                   $nid = (int)$n['id'];
                   $eligible = user_can_access_network($u, $n);
+                  $sensitive = network_is_sensitive($n);
                   $isSel = isset($selected[$uid][$nid]);
+                  $title = $sensitive ? 'Sensitive network – never a default, single grants only'
+                      : ($eligible ? $n['name'] . ' for ' . $u['username'] : 'Requires L' . (int)$n['accesslevel'] . ' – ' . $u['username'] . ' has L' . (int)$u['accesslevel']);
                 ?>
                   <td class="matrix-cell" data-sort-value="<?= $isSel ? '1' : '0' ?>">
                     <button type="button" class="matrix-toggle<?= $isSel && !$eligible ? ' is-invalid' : '' ?>" data-user-id="<?= $uid ?>" data-network-id="<?= $nid ?>"
-                            data-eligible="<?= $eligible ? '1' : '0' ?>" aria-pressed="<?= $isSel ? 'true' : 'false' ?>"
+                            data-eligible="<?= $eligible && !$sensitive ? '1' : '0' ?>" aria-pressed="<?= $isSel ? 'true' : 'false' ?>"
                             aria-label="<?= e($n['name']) ?> for <?= e($u['username']) ?>"
-                            title="<?= $eligible ? e($n['name'] . ' for ' . $u['username']) : 'Requires L' . (int)$n['accesslevel'] . ' – ' . e($u['username']) . ' has L' . (int)$u['accesslevel'] ?>"
-                            <?= !$eligible && !$isSel ? 'disabled' : '' ?>><?= $isSel ? ($eligible ? '✓' : '!') : ($eligible ? '' : '–') ?></button>
+                            title="<?= e($title) ?>"
+                            <?= (!$eligible || $sensitive) && !$isSel ? 'disabled' : '' ?>><?= $isSel ? ($eligible ? '✓' : '!') : ($eligible && !$sensitive ? '' : '–') ?></button>
                   </td>
                 <?php endforeach; ?>
               </tr>

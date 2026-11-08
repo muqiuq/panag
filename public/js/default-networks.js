@@ -15,6 +15,8 @@
     const rows = () => Array.from(table.tBodies[0].rows);
     const isSelected = (row) => row.dataset.selected === '1';
     const isEligible = (row) => row.dataset.eligible === '1';
+    // Sensitive networks are shown but can never be added (single grants only).
+    const canAdd = (row) => isEligible(row) && row.dataset.sensitive !== '1';
 
     function applyFilters() {
       const q = (search?.value || '').trim().toLowerCase();
@@ -40,7 +42,7 @@
       const toggle = row.querySelector('[data-dn-toggle]');
       toggle.checked = selected;
       // Networks above the level can only be removed, never added.
-      toggle.disabled = !isEligible(row) && !selected;
+      toggle.disabled = !canAdd(row) && !selected;
       const warning = row.querySelector('[data-dn-invalid]');
       if (warning) warning.hidden = !(selected && !isEligible(row));
     }
@@ -68,7 +70,7 @@
     root.querySelectorAll('[data-dn-bulk]').forEach((button) => button.addEventListener('click', () => {
       const enable = button.dataset.dnBulk === 'all';
       const ids = rows()
-        .filter((row) => !row.hidden && (enable ? isEligible(row) && !isSelected(row) : isSelected(row)))
+        .filter((row) => !row.hidden && (enable ? canAdd(row) && !isSelected(row) : isSelected(row)))
         .map((row) => Number(row.dataset.networkId));
       if (ids.length === 0) {
         toast('Nothing to change.', true);

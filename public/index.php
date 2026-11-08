@@ -122,7 +122,7 @@ include view_path('header');
               <td><?= e($n['name']) ?></td>
               <td><code><?= e($n['address']) ?></code></td>
               <td data-sort-value="<?= (int)$n['accesslevel'] ?>">L<?= (int)$n['accesslevel'] ?></td>
-              <td><?= isset($defaultIds[(int)$n['id']]) ? '<span class="badge text-bg-secondary">Default</span>' : '' ?></td>
+              <td><?= isset($defaultIds[(int)$n['id']]) ? '<span class="badge text-bg-secondary">Default</span>' : (network_is_sensitive($n) ? '<span class="badge bg-body-tertiary text-body border" title="Sensitive network – never a default, grant it on its own">sensitive</span>' : '') ?></td>
               <td data-status></td>
               <td class="text-end">
                 <?php if ($allowed): ?>

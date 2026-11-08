@@ -9,6 +9,7 @@ function export_networks_json(): string
             'name' => $n['name'] ?? '',
             'address' => $n['address'] ?? '',
             'accesslevel' => isset($n['accesslevel']) ? (int)$n['accesslevel'] : 0,
+            'sensitive' => network_is_sensitive($n),
         ];
     }, $nets);
     return json_encode($payload, JSON_PRETTY_PRINT);
@@ -38,7 +39,7 @@ function import_networks_json(string $json, bool $replace = true): int
         if ($level < 0 || $level > (int)MAX_ACCESS_LEVEL) {
             throw new InvalidArgumentException('Invalid access level at index ' . $idx);
         }
-        $clean[] = ['name' => $name, 'address' => $address, 'accesslevel' => $level];
+        $clean[] = ['name' => $name, 'address' => $address, 'accesslevel' => $level, 'sensitive' => !empty($row['sensitive'])];
     }
 
     $pdo = db();
@@ -47,12 +48,13 @@ function import_networks_json(string $json, bool $replace = true): int
         if ($replace) {
             $pdo->exec('DELETE FROM networks');
         }
-        $stmt = $pdo->prepare('INSERT INTO networks (name, accesslevel, address) VALUES (:n, :a, :addr)');
+        $stmt = $pdo->prepare('INSERT INTO networks (name, accesslevel, address, sensitive) VALUES (:n, :a, :addr, :s)');
         foreach ($clean as $row) {
             $stmt->execute([
                 ':n' => $row['name'],
                 ':a' => $row['accesslevel'],
                 ':addr' => $row['address'],
+                ':s' => (int)$row['sensitive'],
             ]);
         }
         $pdo->commit();

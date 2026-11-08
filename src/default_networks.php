@@ -5,6 +5,7 @@
 //  - Admins manage the default networks of every user. Superusers and admins manage their own
 //    (permission edit_own_default_networks). Regular users only see theirs.
 //  - A network can only be added when the user's access level is sufficient – for every role.
+//  - Sensitive networks are never default networks (only single grants); marking one removes it everywhere.
 //  - Defaults that became ineligible later (the user's level was lowered) stay stored, are shown as
 //    invalid and skipped when granting. Removing them is always allowed.
 
@@ -80,6 +81,11 @@ function change_default_networks(array $actor, array $target, array $networkIds,
         if ($network === null) {
             $rejected[] = $id;
             $reasons[] = 'Unknown network #' . $id . '.';
+            continue;
+        }
+        if ($enabled && network_is_sensitive($network)) {
+            $rejected[] = $id;
+            $reasons[] = sprintf('%s is a sensitive network – only single grants, never a default.', $network['name']);
             continue;
         }
         if ($enabled && !user_can_access_network($target, $network)) {
