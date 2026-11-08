@@ -174,6 +174,23 @@ function handle_set_theme(array $user): void
     json_response(true, 'Theme: ' . THEMES[$theme]['label'] . '.', ['theme' => $theme, 'dark' => theme_is_dark($theme)]);
 }
 
+/** {message} – the own status message for today (empty clears it); visible to all users until 03:00. */
+function handle_set_status_message(array $user): void
+{
+    $result = set_status_message($user, (string)(json_input()['message'] ?? ''), time());
+    if (!$result['ok']) {
+        json_response(false, (string)$result['error'], ['errors' => [(string)$result['error']]], 422);
+    }
+    $until = $result['until'];
+    json_response(true, $result['message'] === null ? 'Status message cleared.' : 'Status message saved – visible until ' . date('H:i', (int)$until) . '.', [
+        'status_message' => $result['message'],
+        'until' => $until,
+        'until_label' => $until === null ? null : date('H:i', $until),
+        'user_id' => (int)$user['id'],
+        'username' => (string)$user['username'],
+    ]);
+}
+
 // action => [HTTP method, handler]
 $routes = [
     'palette' => ['GET', fn() => json_response(true, 'Palette data.', palette_data($user))],
@@ -191,6 +208,7 @@ $routes = [
     'setDefaultNetworks' => ['POST', fn() => handle_set_default_networks($user)],
     'revealOtp' => ['POST', fn() => handle_reveal_otp($user)],
     'setTheme' => ['POST', fn() => handle_set_theme($user)],
+    'setStatusMessage' => ['POST', fn() => handle_set_status_message($user)],
 ];
 
 $route = $routes[(string)($_GET['f'] ?? '')] ?? null;

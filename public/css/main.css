@@ -66,6 +66,10 @@ footer {
     padding: 0 0.35em;
 }
 
+/* Absolutely positioned content in tables (.visually-hidden header labels) must stay inside the scroll box –
+   otherwise it widens the whole page on phones. */
+.table-responsive { position: relative; }
+
 /* --- layout helpers (replace inline styles; the CSP forbids them) --- */
 .col-icon { width: 3rem; }
 .col-narrow { width: 7rem; }
@@ -88,6 +92,14 @@ footer {
 .nothing-here-icon { font-size: 3rem; line-height: 1; }
 
 .otp-qr img { max-width: 100%; height: auto; }
+
+/* Status messages: at most 100 characters, but possibly one long word – they must wrap anywhere. */
+.status-message { overflow-wrap: anywhere; word-break: normal; }
+.col-status { min-width: 10rem; max-width: 22rem; }
+td.status-message { max-width: 22rem; }
+.status-list li { padding: 0.35rem 0; border-bottom: var(--bs-border-width) solid var(--bs-border-color-translucent); }
+.status-list li:last-child { border-bottom: 0; }
+.status-list .status-message { margin: 0 0.35rem; }
 
 /* Rows hidden by a table filter (data-table-filter) or because the network is above the user's level. */
 .filtered-out { display: none; }

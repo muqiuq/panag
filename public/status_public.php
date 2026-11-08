@@ -8,6 +8,7 @@ $adminOverview = admin_access_overview();
 $allUsers = $adminOverview['allUsers'];
 $accessReport = $adminOverview['accessReport'];
 $loggedInToday = $adminOverview['loggedInToday'];
+$statusByUser = status_messages_by_user(time());
 
 $todayUsers = array_filter($allUsers, function ($u) use ($loggedInToday) {
   $ipKey = $u['user_ip'] ?? null;
@@ -61,6 +62,7 @@ include view_path('header');
                   <th class="text-center col-icon" data-sort="number"><span class="visually-hidden">Logged in today</span>#</th>
                   <th>Name</th>
                   <th data-sort="ip">User IP</th>
+                  <th class="col-status">Status today</th>
                   <th>Access granted</th>
                 </tr>
               </thead>
@@ -77,6 +79,7 @@ include view_path('header');
                     <td class="text-center" data-sort-value="<?= $loggedToday ? 1 : 0 ?>" title="<?= $loggedToday ? 'Logged in today' : 'Not logged in today' ?>"><?php if ($loggedToday): ?>✅<?php else: ?>❌<?php endif; ?></td>
                     <td><?= htmlspecialchars($u['username']) ?></td>
                     <td><?= htmlspecialchars($u['user_ip']) ?></td>
+                    <td class="status-message small"><?= e($statusByUser[(int)$u['id']] ?? '') ?></td>
                     <td><?= $hasAccess ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>' ?></td>
                   </tr>
                 <?php endforeach; ?>

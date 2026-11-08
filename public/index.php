@@ -29,7 +29,10 @@ if (is_admin($user)) {
     $loggedInToday = $adminOverview['loggedInToday'];
 }
 $awaiting = MONITOR_ENABLED ? alerts_awaiting_user((int)$user['id']) : [];
-$pageScripts = ['js/dashboard.js', 'js/users-overview.js'];
+$now = time();
+$statusMessages = active_status_messages($now);
+$ownStatus = user_status_message($user, $now);
+$pageScripts = ['js/dashboard.js', 'js/users-overview.js', 'js/status-message.js'];
 include view_path('header');
 ?>
 <?php foreach ($awaiting as $notice): ?>
@@ -53,6 +56,18 @@ include view_path('header');
     <div id="paletteHelp" class="form-text">
       Enter or ↓ selects, Enter again grants for <?= e($extendedDuration) ?> (or add a duration: “vpn 2h”). Press <kbd>/</kbd> or <kbd>Ctrl</kbd>+<kbd>K</kbd> on any page.
     </div>
+    <form class="mt-3" data-status-form novalidate>
+      <label class="form-label fw-semibold" for="statusInput">Your status today</label>
+      <div class="input-group">
+        <input type="text" id="statusInput" name="message" class="form-control" maxlength="<?= STATUS_MESSAGE_MAX ?>" autocomplete="off"
+               value="<?= e($ownStatus ?? '') ?>" placeholder="e.g. “in the office until 5”, “on call”, “working from home”" aria-describedby="statusHelp">
+        <button class="btn btn-outline-primary" type="submit">Save status</button>
+        <button class="btn btn-outline-secondary" type="button" data-status-clear <?= $ownStatus === null ? 'disabled' : '' ?>>Clear</button>
+      </div>
+      <div id="statusHelp" class="form-text">
+        <span data-status-count><?= status_message_length($ownStatus ?? '') ?></span>/<?= STATUS_MESSAGE_MAX ?> characters · all users see it until <?= sprintf('%02d:00', STATUS_MESSAGE_RESET_HOUR) ?>, then it is cleared.
+      </div>
+    </form>
   </div>
 </div>
 
@@ -143,6 +158,8 @@ include view_path('header');
 
 <?php if (is_admin($user)): ?>
   <?php include view_path('partials/api_status_card'); ?>
+<?php else: ?>
+  <?php include view_path('partials/status_messages_card'); ?>
 <?php endif; ?>
 <script type="application/json" id="paletteData"><?= json_encode(palette_data($user, $routerEntries ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <?php include view_path('footer'); ?>

@@ -5,6 +5,7 @@ $accessReport = $accessReport ?? ['success' => false, 'data' => [], 'error' => '
 $allUsers = $allUsers ?? [];
 $lastLogins = $lastLogins ?? [];
 $loggedInToday = $loggedInToday ?? [];
+$statusByUser = isset($statusMessages) ? array_column($statusMessages, 'message', 'id') : status_messages_by_user(time());
 ?>
 <div class="card shadow-sm mt-4">
   <div class="card-header d-flex justify-content-between align-items-center">
@@ -33,6 +34,7 @@ $loggedInToday = $loggedInToday ?? [];
               <th data-sort="number" class="col-icon" title="Logged in today"><span class="visually-hidden">Logged in today</span>#</th>
               <th>User</th>
               <th data-sort="ip">User IP</th>
+              <th class="col-status">Status today</th>
               <th data-sort="number">Current addresses</th>
               <th data-sort="number" class="col-time">Last login</th>
               <th data-sort="none" class="text-end"><span class="visually-hidden">Actions</span></th>
@@ -48,6 +50,7 @@ $loggedInToday = $loggedInToday ?? [];
                 <td class="text-center fs-6" data-sort-value="<?= $today ? 1 : 0 ?>" title="<?= $today ? 'Logged in today' : 'Not logged in today' ?>"><?= $today ? '✅' : '⌛' ?></td>
                 <td><strong><?= e($u['username']) ?></strong></td>
                 <td><code><?= e($u['user_ip']) ?></code></td>
+                <td class="status-message small" data-status-of="<?= (int)$u['id'] ?>"><?= e($statusByUser[(int)$u['id']] ?? '') ?></td>
                 <td data-sort-value="<?= count($entries) ?>">
                   <?php if (empty($entries)): ?>
                     <span class="text-muted">None</span>
