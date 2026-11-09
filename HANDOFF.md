@@ -1,6 +1,6 @@
 # PANAG – Übergabe / Stand der Arbeit
 
-Stand: 2026-11-08 · Branch `main` · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
+Stand: 2026-11-09 · Branch `main` · Version **V2.0** (Tag `v2.0` auf GitHub) · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
 Claude-Session) nahtlos fortzusetzen. Der Gesamtplan steht in [PLAN.md](PLAN.md); dieses Dokument fasst
 zusammen, was entschieden, gebaut und gelernt wurde.
 
@@ -175,6 +175,9 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 4. ~~Phase 4 – Themes~~ erledigt mit der gewünschten Auswahl (Stand siehe PLAN.md, Phase 4). Crazy Colors und
    Rainbow aus PLAN.md 4.9 nur auf Wunsch.
 5. **Phase 5 – Aufräumen/Doku**, optional RouterOS-CHR-Test in der CI und Trivy.
-6. **Security Monitoring** ist umgesetzt und committet (`dd8fb66`, Release-Tag `v0.2` lokal). Offen sind die
+6. **Security Monitoring** ist umgesetzt und committet (`dd8fb66`; Tag `v0.2` nur lokal, nie gepusht). Offen sind die
    Geräteprüfung am hEX S (Peer-Felder, Egress, Scheduler) und ein echter OpenRouter-Testaufruf mit der
    gewählten Provider-Liste, siehe docs/plan-security-monitoring.md, Kapitel 18.
+7. ~~Phase 6 – Wünsche vom 2026-11-08~~ erledigt (Stand siehe PLAN.md, Phase 6) und als **V2.0** getaggt und
+   gepusht. Die CI baut daraus Image (`ghcr.io/muqiuq/panag:v2.0`, `latest`) und Release mit den Tarballs
+   `panag-v2.0-arm64.tar` / `-armv7.tar`.
