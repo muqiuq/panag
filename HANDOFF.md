@@ -175,7 +175,7 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 4. ~~Phase 4 – Themes~~ erledigt mit der gewünschten Auswahl (Stand siehe PLAN.md, Phase 4). Crazy Colors und
    Rainbow aus PLAN.md 4.9 nur auf Wunsch.
 5. **Phase 5 – Aufräumen/Doku**, optional RouterOS-CHR-Test in der CI und Trivy.
-6. **Security Monitoring** ist umgesetzt und committet (`dd8fb66`; Tag `v0.2` nur lokal, nie gepusht). Offen sind die
+6. **Security Monitoring** ist umgesetzt und committet (`dd8fb66`; Tag `v0.2` am 2026-11-09 nach `v2.0` gepusht – danach den Publish-Job von `v2.0` erneut laufen lassen, damit `latest` wieder V2.0 ist). Offen sind die
    Geräteprüfung am hEX S (Peer-Felder, Egress, Scheduler) und ein echter OpenRouter-Testaufruf mit der
    gewählten Provider-Liste, siehe docs/plan-security-monitoring.md, Kapitel 18.
 7. ~~Phase 6 – Wünsche vom 2026-11-08~~ erledigt (Stand siehe PLAN.md, Phase 6) und als **V2.0** getaggt und
