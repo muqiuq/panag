@@ -134,8 +134,7 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 - Bei `fetch(..., {redirect: 'manual'})` liefert der Browser Status 0 (`opaqueredirect`), nicht 302.
 - Podman speichert Images im OCI-Format ohne HEALTHCHECK → `run.sh` baut mit `--format docker`
   (RouterOS braucht ohnehin docker-archive-Tarballs).
-- RouterOS-Befehle in `INSTALL.md` sind eine Skizze – Parameternamen (`envlist`, `mounts`) vor dem
-  Einsatz gegen die installierte RouterOS-Version prüfen.
+- RouterOS-Befehle in `INSTALL.md` sind ungetestet. Container-Syntax nach aktueller MikroTik-Doku (2026-11-09): `/container/envs/add list=…`, `/container/mounts/add list=…`, `/container/add envlist=… mountlists=…` – am Gerät prüfen.
 - Nach dem ersten Push nach GHCR: Paket-Sichtbarkeit auf GitHub einmalig auf **public** stellen.
 - **macOS-Bash 3.2:** leere Arrays in `run.sh` nur als `${arr[@]+"${arr[@]}"}` expandieren (sonst Abbruch unter `set -u`).
 - **CSP** (`docker/httpd.conf`): kein `<script>`-Inhalt, kein `style="…"`, keine `on…`-Attribute. Seiten-JS in

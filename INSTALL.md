@@ -6,9 +6,10 @@ time-limited access to the networks they need. Everything else stays blocked.
 
 You need basic RouterOS skills (terminal or WebFig) and about an hour.
 
-> **Check the syntax against your RouterOS version.** Some container parameters changed between 7.x
-> releases (for example `envlist` and `mounts`). The commands below show the structure. If RouterOS rejects
-> a parameter, `?` lists the valid ones (e.g. `/container add ?`).
+> **Check the syntax against your RouterOS version.** The container commands follow the current RouterOS 7
+> documentation (`/container/envs` and `/container/mounts` with `list=`, `/container/add` with `envlist=` and
+> `mountlists=`); older 7.x releases used other names. If RouterOS rejects a parameter, `?` lists the valid
+> ones (e.g. `/container/add ?`).
 
 ## Contents
 
@@ -189,14 +190,14 @@ PANAG is configured with environment variables. All of them are documented in
 "set"). The minimal set:
 
 ```routeros
-/container/envs/add name=panag key=MIKROTIK_BASE_URL value=https://172.17.0.1/rest
-/container/envs/add name=panag key=MIKROTIK_USERNAME value=panag
-/container/envs/add name=panag key=MIKROTIK_PASSWORD value="<password from section 7>"
-/container/envs/add name=panag key=MIKROTIK_CERT_FINGERPRINT value=""
-/container/envs/add name=panag key=LOGIN_IP_WHITELIST value=10.8.0.0/24
-/container/envs/add name=panag key=WIREGUARD_INTERFACE value=wg-admin
-/container/envs/add name=panag key=APP_TIMEZONE value=Europe/Zurich
-/container/envs/add name=panag key=APP_BASE_URL value=http://172.17.0.2:8080
+/container/envs/add list=panag key=MIKROTIK_BASE_URL value=https://172.17.0.1/rest
+/container/envs/add list=panag key=MIKROTIK_USERNAME value=panag
+/container/envs/add list=panag key=MIKROTIK_PASSWORD value="<password from section 7>"
+/container/envs/add list=panag key=MIKROTIK_CERT_FINGERPRINT value=""
+/container/envs/add list=panag key=LOGIN_IP_WHITELIST value=10.8.0.0/24
+/container/envs/add list=panag key=WIREGUARD_INTERFACE value=wg-admin
+/container/envs/add list=panag key=APP_TIMEZONE value=Europe/Zurich
+/container/envs/add list=panag key=APP_BASE_URL value=http://172.17.0.2:8080
 ```
 
 * `LOGIN_IP_WHITELIST`: only these addresses see the login form – the WireGuard network.
@@ -214,7 +215,7 @@ PANAG is configured with environment variables. All of them are documented in
 The database lives on the data mount and survives updates:
 
 ```routeros
-/container/mounts/add name=panag-data src=usb1/panag-data dst=/data
+/container/mounts/add list=panag-data src=usb1/panag-data dst=/data
 ```
 
 **Option A – pull from the GitHub Container Registry** (the router needs internet access):
@@ -222,7 +223,7 @@ The database lives on the data mount and survives updates:
 ```routeros
 /container/config/set registry-url=https://ghcr.io tmpdir=usb1/tmp
 /container/add remote-image=muqiuq/panag:v2.0 interface=veth-panag envlist=panag \
-    mounts=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
+    mountlists=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 
 Pin a version (`v2.0`) instead of `latest`, so an update only happens when you decide.
@@ -232,7 +233,7 @@ from the [GitHub release](https://github.com/muqiuq/panag/releases), upload it t
 
 ```routeros
 /container/add file=usb1/panag-v2.0-arm64.tar interface=veth-panag envlist=panag \
-    mounts=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
+    mountlists=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 
 **Start and watch the log:**
@@ -255,7 +256,7 @@ PANAG only talks to the router's REST API if the certificate's SHA-256 fingerpri
 2. Copy it into the variable (colons are optional) and restart the container:
 
 ```routeros
-/container/envs/set [find name=panag key=MIKROTIK_CERT_FINGERPRINT] value="AB:CD:…"
+/container/envs/set [find list=panag key=MIKROTIK_CERT_FINGERPRINT] value="AB:CD:…"
 /container/stop [find interface=veth-panag]
 /container/start [find interface=veth-panag]
 ```
@@ -319,14 +320,14 @@ their defaults.
 **Environment:**
 
 ```routeros
-/container/envs/add name=panag key=MONITOR_ENABLED value=true
-/container/envs/add name=panag key=MONITOR_TOKEN_FILE value=/data/secrets/monitor_token
-/container/envs/add name=panag key=MONITOR_ALLOWED_COUNTRIES value=CH
-/container/envs/add name=panag key=SMTP_HOST value=smtp.example.com
-/container/envs/add name=panag key=SMTP_USERNAME value=panag@example.com
-/container/envs/add name=panag key=SMTP_PASSWORD_FILE value=/data/secrets/smtp_password
-/container/envs/add name=panag key=MAIL_FROM value=panag@example.com
-/container/envs/add name=panag key=ALERT_ADMIN_EMAILS value=security@example.com
+/container/envs/add list=panag key=MONITOR_ENABLED value=true
+/container/envs/add list=panag key=MONITOR_TOKEN_FILE value=/data/secrets/monitor_token
+/container/envs/add list=panag key=MONITOR_ALLOWED_COUNTRIES value=CH
+/container/envs/add list=panag key=SMTP_HOST value=smtp.example.com
+/container/envs/add list=panag key=SMTP_USERNAME value=panag@example.com
+/container/envs/add list=panag key=SMTP_PASSWORD_FILE value=/data/secrets/smtp_password
+/container/envs/add list=panag key=MAIL_FROM value=panag@example.com
+/container/envs/add list=panag key=ALERT_ADMIN_EMAILS value=security@example.com
 ```
 
 Admins also get alerts at the e-mail address in their profile. Optional AI triage (only pseudonymised facts,
