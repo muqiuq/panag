@@ -95,7 +95,7 @@ include view_path('header');
   <div class="alert alert-<?= e($flash['type']) ?>" role="alert"><?= e($flash['message']) ?></div>
 <?php endif; ?>
 <?php if (monitor_is_stale()): ?>
-  <div class="alert alert-warning" role="alert">No monitor cycle in the last 15 minutes – check the RouterOS scheduler (docs/deploy-mikrotik.md).</div>
+  <div class="alert alert-warning" role="alert">No monitor cycle in the last 15 minutes – check the RouterOS scheduler (INSTALL.md, section 13).</div>
 <?php endif; ?>
 <div class="row g-4">
   <div class="col-lg-6">

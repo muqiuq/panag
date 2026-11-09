@@ -101,7 +101,7 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 | Datei | Zweck |
 |-------|-------|
 | `PLAN.md` | Gesamtplan, Phasen mit Abnahmekriterien und Stand |
-| `docs/deploy-mikrotik.md` | Installation auf dem hEX S (veth, Firewall, API-User, Zertifikat, Envs, erster Admin) |
+| `INSTALL.md` | Installationsanleitung für MikroTik (Container-Paket, WireGuard, veth, Firewall inkl. Regel pro User, API-User, Zertifikat, Envs, erster Admin, Monitoring, Update/Backup, Fehlersuche); `docs/deploy-mikrotik.md` verweist nur noch dorthin |
 | `.env.example` | alle Konfigurationsvariablen |
 | `run.sh` | alle Entwickler-Befehle |
 | `src/config.php` | Env-basierte Konfiguration (`panag_env`, `*_FILE` für Secrets) |
@@ -134,7 +134,7 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 - Bei `fetch(..., {redirect: 'manual'})` liefert der Browser Status 0 (`opaqueredirect`), nicht 302.
 - Podman speichert Images im OCI-Format ohne HEALTHCHECK → `run.sh` baut mit `--format docker`
   (RouterOS braucht ohnehin docker-archive-Tarballs).
-- RouterOS-Befehle in `docs/deploy-mikrotik.md` sind eine Skizze – Parameternamen (`envlist`, `mounts`) vor dem
+- RouterOS-Befehle in `INSTALL.md` sind eine Skizze – Parameternamen (`envlist`, `mounts`) vor dem
   Einsatz gegen die installierte RouterOS-Version prüfen.
 - Nach dem ersten Push nach GHCR: Paket-Sichtbarkeit auf GitHub einmalig auf **public** stellen.
 - **macOS-Bash 3.2:** leere Arrays in `run.sh` nur als `${arr[@]+"${arr[@]}"}` expandieren (sonst Abbruch unter `set -u`).
@@ -169,7 +169,7 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 ## 7. Offen / nächste Schritte
 
 1. **GitHub Actions** prüfen (User testet; Fehler melden und beheben).
-2. **Phase 0, Punkt 6:** Testinstallation auf dem hEX S nach `docs/deploy-mikrotik.md` (RAM/Speicher prüfen,
+2. **Phase 0, Punkt 6:** Testinstallation auf dem hEX S nach `INSTALL.md` (RAM/Speicher prüfen,
    Login-Seite muss die echte WireGuard-IP zeigen, Freigabe muss in der Address-List landen).
 3. ~~Phase 3 – Bedienung~~ erledigt (Stand siehe PLAN.md, Phase 3).
 4. ~~Phase 4 – Themes~~ erledigt mit der gewünschten Auswahl (Stand siehe PLAN.md, Phase 4). Crazy Colors und

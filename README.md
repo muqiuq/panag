@@ -15,13 +15,29 @@ PANAG is a lightweight PHP/SQLite web app that hands out temporary or default ac
  - Default networks per user: editor with search and bulk actions, users × networks matrix, reverse view per network – always limited to the user's access level
  - All tables sortable (IP-aware); OTP secrets only shown after an explicit, logged "Reveal"
  - Strict Content-Security-Policy (no inline scripts or styles)
- - Security monitoring: unusual logins, grants and WireGuard locations (GeoIP: country and network operator) are bundled into alerts and mailed to admins – and the affected user ("Was this you?"); optional AI triage via OpenRouter with pseudonymised facts only ([plan](docs/plan-security-monitoring.md), [setup](docs/deploy-mikrotik.md#8-security-monitoring-optional))
+ - Security monitoring: unusual logins, grants and WireGuard locations (GeoIP: country and network operator) are bundled into alerts and mailed to admins – and the affected user ("Was this you?"); optional AI triage via OpenRouter with pseudonymised facts only ([plan](docs/plan-security-monitoring.md), [setup](INSTALL.md#13-security-monitoring-optional))
  - All configuration via environment variables; admins see every effective value (secrets only as "set") on the config page
  - Admins can act as another user (impersonation) and return
  - Local assets (Bootstrap/kjua) for offline-friendly deployments
  - Small container image (~40 MB, Alpine + Apache + PHP 8.4) for `amd64`, `arm64` and `arm/v7`
- - Deployable on a [RouterOS](https://mikrotik.com/software) device using the [Container](https://help.mikrotik.com/docs/spaces/ROS/pages/84901929/Container) feature – see [docs/deploy-mikrotik.md](docs/deploy-mikrotik.md)
+ - Deployable on a [RouterOS](https://mikrotik.com/software) device using the [Container](https://help.mikrotik.com/docs/spaces/ROS/pages/84901929/Container) feature – see [INSTALL.md](INSTALL.md)
  - Fully testable without a MikroTik: a mock RouterOS REST API is included
+
+## 📥 Installation
+
+PANAG runs as a container directly on the MikroTik router that terminates the admins' WireGuard VPN
+(RouterOS 7 on an ARM, ARM64 or x86 device, e.g. hEX S 2025). The step-by-step manual is in
+**[INSTALL.md](INSTALL.md)**:
+
+1. Install the container package, enable container mode, add a USB stick or microSD card and NTP.
+2. Give every admin a WireGuard peer with a fixed `/32` address – that address is the PANAG user IP.
+3. Create the container network, the API user and HTTPS for the RouterOS REST API.
+4. Start the image (`ghcr.io/muqiuq/panag:v2.0` or the release tarball) with a few environment variables.
+5. Add one firewall rule per user: traffic from the user's tunnel IP to the address list
+   `Whitelist <user IP>` is allowed – PANAG fills that list with timed entries.
+6. Create the first admin, add networks and users, test a grant.
+
+Optional: security monitoring with mail alerts ([INSTALL.md, section 13](INSTALL.md#13-security-monitoring-optional)).
 
 ## 🧸 Motivation
  - Let admins grant themselves scoped access to parts of the network without exposing everything.
