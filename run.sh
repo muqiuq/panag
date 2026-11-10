@@ -77,7 +77,7 @@ build_image() {
     info "Building $IMAGE"
     # Explicit platform: a previous cross-arch build may have re-tagged the base image to another architecture.
     # shellcheck disable=SC2046
-    # PANAG_RUNTIME_OS=debian builds the Debian variant (the arm/v5 image) natively, e.g. for the E2E tests.
+    # PANAG_RUNTIME_OS=debian builds the Debian variant (the 32-bit ARM image) natively, e.g. for the E2E tests.
     "$ENGINE" build $(build_flags) --platform "$(native_platform)" --build-arg RUNTIME_OS="${PANAG_RUNTIME_OS:-}" \
         --target runtime -t "$IMAGE" .
 }
@@ -137,7 +137,7 @@ arch_platform() {
     case "$1" in
         amd64) echo linux/amd64 ;;
         arm64) echo linux/arm64 ;;
-        arm|armv5) echo linux/arm/v5 ;;
+        arm|armv7) echo linux/arm/v7 ;;
         *) die "Unknown architecture '$1' (use amd64, arm64 or arm)" ;;
     esac
 }
@@ -312,7 +312,7 @@ PANAG dev tool – everything runs in containers.
 
 Environment: CONTAINER_ENGINE=docker|podman, PANAG_PORT (8080), MOCK_PORT (8081), MAILPIT_PORT (8025),
              PANAG_KEEP_E2E=1 keeps the E2E stack running, PANAG_REBUILD_TOOLS=1,
-             PANAG_RUNTIME_OS=debian builds the Debian variant of the image (used for arm/v5).
+             PANAG_RUNTIME_OS=debian builds the Debian variant of the image (used for 32-bit ARM).
 EOF
 }
 

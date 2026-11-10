@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # alpine = amd64/arm64 images; debian = the arm/v5 image's runtime, here natively on amd64.
+        # alpine = amd64/arm64 images; debian = the 32-bit ARM image's runtime, here natively on amd64.
         os: [alpine, debian]
     steps:
       - uses: actions/checkout@v7
@@ -68,11 +68,10 @@ jobs:
           - arch: arm64
             platform: linux/arm64
             budget_mb: 50
-          # 32-bit ARM routers can't run hard-float binaries in a container, so this is Debian armel
-          # (soft-float), which is bigger than Alpine.
+          # Official php image on Debian bookworm (Alpine armv7 dies with SIGILL on RouterOS), bigger than Alpine.
           - arch: arm
-            platform: linux/arm/v5
-            budget_mb: 100
+            platform: linux/arm/v7
+            budget_mb: 150
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-qemu-action@v3
@@ -139,7 +138,7 @@ jobs:
         with:
           context: .
           target: runtime
-          platforms: linux/amd64,linux/arm64,linux/arm/v5
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -167,7 +166,7 @@ jobs:
       - name: Export docker-archive tarballs (for /container add file=...)
         run: |
           mkdir -p dist
-          for target in arm64:linux/arm64 arm:linux/arm/v5; do
+          for target in arm64:linux/arm64 arm:linux/arm/v7; do
             arch="${target%%:*}"; platform="${target#*:}"
             docker buildx build --platform "$platform" --target runtime \
               --cache-from type=gha,scope=publish \

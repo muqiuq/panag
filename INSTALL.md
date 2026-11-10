@@ -55,7 +55,7 @@ admin laptop ──WireGuard──► router ──(routed, no NAT)──► vet
 | What | Details |
 |------|---------|
 | Router | RouterOS 7.x on an **ARM, ARM64 or x86** CPU, for example the hEX S (2025, E60iUGS). MIPS devices (for example the older hEX S RB760iGS) cannot run containers. Check with `/system/resource/print`: `architecture-name` must be `arm`, `arm64` or `x86_64`. |
-| Storage | USB stick or microSD card, formatted as **ext4**, a few hundred MB free. The image (about 40 MB, up to 100 MB on 32-bit ARM), its unpacked files and the database go there, not into the router's flash. |
+| Storage | USB stick or microSD card, formatted as **ext4**, a few hundred MB free. The image (about 40 MB, up to 150 MB on 32-bit ARM), its unpacked files and the database go there, not into the router's flash. |
 | Memory | About 30 MB for the container when idle. |
 | Clock | Correct time on the router (NTP). One-time passwords only work with the right time. |
 | Clients | WireGuard on the admins' devices, an authenticator app (any TOTP app: Aegis, Google Authenticator, 1Password, …). |
@@ -211,10 +211,10 @@ PANAG is configured with environment variables. All of them are documented in
 ## 9. Install and start the container
 
 **Which image?** `architecture-name` `arm64` → `arm64` image, `arm` → `arm` image, `x86_64` → `amd64`.
-With `remote-image`, RouterOS picks the right one by itself. The `arm` image is Debian armel (soft-float,
-`linux/arm/v5`): RouterOS on 32-bit ARM can't run hard-float binaries in a container. V2.0 still shipped an
-`armv7` image, which stops right away with `exited with signal 4 (Illegal instruction)` – on a 32-bit ARM router
-use a later release (until then `edge`).
+With `remote-image`, RouterOS picks the right one by itself. The `arm` image (`linux/arm/v7`) is based on the
+official `php:8.4-apache-bookworm` image. V2.0 still shipped an Alpine-based `armv7` image, which stops right away
+with `exited with signal 4 (Illegal instruction)` in RouterOS – on a 32-bit ARM router use a later release (until
+then `edge`).
 
 The database lives on the data mount and survives updates:
 
@@ -405,7 +405,7 @@ from [db-ip.com](https://db-ip.com/db/lite.php) (CC BY 4.0), unpack them and upl
 | Grant succeeds, but the network is not reachable | Firewall rule for this user missing or below the drop rule (section 6.3); list name not `Whitelist <user IP>`; the device's `AllowedIPs` don't cover the network. |
 | *Monitoring*: "No monitor cycle in the last 15 minutes" | Scheduler missing, wrong token, or the call doesn't come from `172.17.0.1` (`MONITOR_ALLOWED_SOURCES`). |
 | The container does not start | `/log/print where topics~"container"`; wrong image architecture; storage full; container mode not confirmed. |
-| The container stops with `exited with signal 4 (Illegal instruction)` | The image's binaries don't run on this CPU. On 32-bit ARM (`architecture-name` `arm`) only the `arm` image (Debian armel) works, not V2.0's `armv7` image (section 9). |
+| The container stops with `exited with signal 4 (Illegal instruction)` | The image's binaries don't run on this CPU. On 32-bit ARM (`architecture-name` `arm`) only the Debian-based `arm` image works, not V2.0's Alpine-based `armv7` image (section 9). |
 
 ## 16. Migrating from V0.1
 

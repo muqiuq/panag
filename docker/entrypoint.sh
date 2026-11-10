@@ -12,7 +12,7 @@ as_app() {
     elif command -v su-exec >/dev/null 2>&1; then
         su-exec apache:apache "$@"
     else
-        # Debian image (arm/v5): setpriv from util-linux instead of su-exec.
+        # Debian image (32-bit ARM): setpriv from util-linux instead of su-exec.
         setpriv --reuid=apache --regid=apache --init-groups -- "$@"
     fi
 }
