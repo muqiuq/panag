@@ -32,7 +32,7 @@ Gewünscht (vom User):
 | Einzelfreigabe (Kommandofeld/Tabelle) | immer **Sonderfreigabe-Dauer**, auch bei Default-Netzen |
 | Mindestdauer | 15 min (Default und Sonderfreigabe) |
 | Theme „Slay“ | Gay/Pride, **violett** dominant (Regenbogen nur als Akzent; Abgrenzung zu `rainbow`) |
-| Produktion | **RouterOS-Container auf MikroTik hEX S (E60iUGS)**; Images für ARM64 und ARM32 (arm/v7) |
+| Produktion | **RouterOS-Container auf MikroTik hEX S (E60iUGS)**; Images für ARM64 (Alpine) und ARM32 (arm/v5, Debian armel) |
 | UI-Sprache | Englisch bleibt |
 | Registry | öffentliches Image `ghcr.io/muqiuq/panag` |
 | Speicher am Router | USB/microSD vorhanden → Image, tmp und `/data` dorthin |
@@ -122,8 +122,14 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 
 ## 6. Stolpersteine / Wissen, das nicht im Code steht
 
-- **arm/v7 lässt sich auf Apple Silicon nicht bauen** (kein AArch32; QEMU-binfmt in der Podman-VM hilft nicht).
-  Das baut nur die CI. arm64/amd64 gehen lokal (`./run.sh build arm64`, `./run.sh export arm64`).
+- **32-bit ARM: RouterOS-Container können keine Hard-Float-Binaries ausführen.** Auf dem hEX S (E60iUGS) stirbt
+  das Alpine-armv7-Image mit `exited with signal 4 (Illegal instruction)`, schon bei `busybox awk`. Deshalb ist
+  das 32-bit-Image seit 2026-11-10 Debian armel (`linux/arm/v5`, soft-float), flachgeklopft auf `scratch` ohne
+  Perl/apt/gconv, mit denselben Pfaden, User und PHP-Extensions wie Alpine. QEMU in der CI emuliert eine CPU, die
+  alles kann – solche Fehler sieht nur echte Hardware.
+- **32-bit ARM lässt sich auf Apple Silicon nicht bauen** (kein AArch32; QEMU-binfmt in der Podman-VM hilft nicht).
+  Das baut nur die CI. arm64/amd64 gehen lokal (`./run.sh build arm64`, `./run.sh export arm64`). Die
+  Debian-Variante läuft aber nativ: `PANAG_RUNTIME_OS=debian ./run.sh e2e` (macht die CI auch).
 - `podman build/run --platform X` biegt den lokalen Tag des Basis-Images um → `run.sh` baut nativ immer mit
   expliziter `--platform`; die Cross-Arch-Probe nutzt bewusst `busybox`.
 - **TRUSTED_PROXIES** im Dev/E2E nur auf das Compose-Subnetz setzen (Dev `172.30.99.0/24`, E2E `172.30.98.0/24`)
@@ -163,7 +169,7 @@ git clone git@github.com:muqiuq/panag.git && cd panag
   (`.table-responsive`) verbreitern sie die ganze Seite auf dem Handy.
   Unit-Tests ersetzen Router, Mailer, GeoIP und KI über `set_router()`, `set_mailer()`, `set_geoip()`,
   `set_ai_transport()`; Zeit wird als `$now` durchgereicht.
-- **PHP auf arm/v7 ist 32-bit** (`PHP_INT_SIZE` 4): Deshalb ist `php84-bcmath` im Image (MMDB-Werte > 2³¹).
+- **PHP auf 32-bit ARM ist 32-bit** (`PHP_INT_SIZE` 4): Deshalb ist `php84-bcmath` im Image (MMDB-Werte > 2³¹).
 
 ## 7. Offen / nächste Schritte
 
@@ -180,3 +186,6 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 7. ~~Phase 6 – Wünsche vom 2026-11-08~~ erledigt (Stand siehe PLAN.md, Phase 6) und als **V2.0** getaggt und
    gepusht. Die CI baut daraus Image (`ghcr.io/muqiuq/panag:v2.0`, `latest`) und Release mit den Tarballs
    `panag-v2.0-arm64.tar` / `-armv7.tar`.
+8. **arm/v5-Image auf dem hEX S testen** (2026-11-10 lokal committet, nicht gepusht): V2.0s armv7-Image stirbt
+   dort mit SIGILL. Nach dem Push gibt es `ghcr.io/muqiuq/panag:edge`; Größe des armel-Images in der CI
+   (`arm-smoke`) ablesen und das Budget von 100 MB ggf. enger stellen.

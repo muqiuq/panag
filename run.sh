@@ -77,7 +77,9 @@ build_image() {
     info "Building $IMAGE"
     # Explicit platform: a previous cross-arch build may have re-tagged the base image to another architecture.
     # shellcheck disable=SC2046
-    "$ENGINE" build $(build_flags) --platform "$(native_platform)" --target runtime -t "$IMAGE" .
+    # PANAG_RUNTIME_OS=debian builds the Debian variant (the arm/v5 image) natively, e.g. for the E2E tests.
+    "$ENGINE" build $(build_flags) --platform "$(native_platform)" --build-arg RUNTIME_OS="${PANAG_RUNTIME_OS:-}" \
+        --target runtime -t "$IMAGE" .
 }
 
 build_tools() {
@@ -135,8 +137,8 @@ arch_platform() {
     case "$1" in
         amd64) echo linux/amd64 ;;
         arm64) echo linux/arm64 ;;
-        armv7|arm) echo linux/arm/v7 ;;
-        *) die "Unknown architecture '$1' (use amd64, arm64 or armv7)" ;;
+        arm|armv5) echo linux/arm/v5 ;;
+        *) die "Unknown architecture '$1' (use amd64, arm64 or arm)" ;;
     esac
 }
 
@@ -259,7 +261,7 @@ cmd_build() {
     info "Building $tag for $platform"
     if [ "$ENGINE" = podman ]; then
         if [ "$platform" != "$(native_platform)" ] && ! podman run --rm --platform "$platform" docker.io/library/busybox:stable true >/dev/null 2>&1; then
-            warn "This podman machine cannot run $platform binaries (no QEMU binfmt; arm/v7 is not possible on Apple Silicon)."
+            warn "This podman machine cannot run $platform binaries (no QEMU binfmt; 32-bit ARM is not possible on Apple Silicon)."
             die "Use the image built by CI (ghcr.io/muqiuq/panag or the release .tar), or build on a Linux host with qemu-user-static."
         fi
         podman build --format docker --platform "$platform" --target runtime -t "$tag" .
@@ -271,7 +273,7 @@ cmd_build() {
 
 cmd_export() {
     local arch="${1:-}"
-    [ -n "$arch" ] || die "Usage: ./run.sh export <arm64|armv7|amd64>"
+    [ -n "$arch" ] || die "Usage: ./run.sh export <arm64|arm|amd64>"
     cmd_build "$arch"
     local tag="localhost/panag:${VERSION}-${arch}"
     mkdir -p dist
@@ -305,11 +307,12 @@ PANAG dev tool – everything runs in containers.
 
   ./run.sh npm <args>      npm in the Playwright container
   ./run.sh composer <args> composer in the tools container
-  ./run.sh build [arch]    Build the runtime image (arch: amd64 | arm64 | armv7)
+  ./run.sh build [arch]    Build the runtime image (arch: amd64 | arm64 | arm)
   ./run.sh export <arch>   Build and save dist/panag-<version>-<arch>.tar for RouterOS
 
 Environment: CONTAINER_ENGINE=docker|podman, PANAG_PORT (8080), MOCK_PORT (8081), MAILPIT_PORT (8025),
-             PANAG_KEEP_E2E=1 keeps the E2E stack running, PANAG_REBUILD_TOOLS=1.
+             PANAG_KEEP_E2E=1 keeps the E2E stack running, PANAG_REBUILD_TOOLS=1,
+             PANAG_RUNTIME_OS=debian builds the Debian variant of the image (used for arm/v5).
 EOF
 }
 

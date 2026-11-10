@@ -7,10 +7,13 @@ export DATA_DIR
 export APACHE_MAX_WORKERS="${APACHE_MAX_WORKERS:-5}"
 
 as_app() {
-    if [ "$(id -u)" = "0" ]; then
+    if [ "$(id -u)" != "0" ]; then
+        "$@"
+    elif command -v su-exec >/dev/null 2>&1; then
         su-exec apache:apache "$@"
     else
-        "$@"
+        # Debian image (arm/v5): setpriv from util-linux instead of su-exec.
+        setpriv --reuid=apache --regid=apache --init-groups -- "$@"
     fi
 }
 
