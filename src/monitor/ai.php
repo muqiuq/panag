@@ -56,12 +56,7 @@ function ai_pseudonym_key(): string
     if ((string)MONITOR_PSEUDONYM_KEY !== '') {
         return (string)MONITOR_PSEUDONYM_KEY;
     }
-    $file = rtrim(DATA_DIR, '/') . '/monitor.key';
-    if (!is_file($file)) {
-        @file_put_contents($file, bin2hex(random_bytes(32)));
-        @chmod($file, 0600);
-    }
-    return trim((string)@file_get_contents($file));
+    return data_dir_secret('monitor.key');
 }
 
 /** Keep only allowlisted facts with simple, validated values. */

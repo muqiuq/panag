@@ -317,7 +317,6 @@ their defaults.
 **Secrets as files** (on the data mount):
 
 ```routeros
-/file/add name=usb1/panag-data/secrets/monitor_token contents="<long random token>"
 /file/add name=usb1/panag-data/secrets/smtp_password contents="<smtp password>"
 ```
 
@@ -325,7 +324,6 @@ their defaults.
 
 ```routeros
 /container/envs/add list=panag key=MONITOR_ENABLED value=true
-/container/envs/add list=panag key=MONITOR_TOKEN_FILE value=/data/secrets/monitor_token
 /container/envs/add list=panag key=MONITOR_ALLOWED_COUNTRIES value=CH
 /container/envs/add list=panag key=SMTP_HOST value=smtp.example.com
 /container/envs/add list=panag key=SMTP_USERNAME value=panag@example.com
@@ -339,12 +337,15 @@ zero data retention enforced): `MONITOR_AI=openrouter`, `OPENROUTER_API_KEY_FILE
 (the providers allowed to receive the data; required).
 
 **Scheduler** – one monitor cycle every 5 minutes. `monitor.php` only accepts calls from the router's bridge
-address (`MONITOR_ALLOWED_SOURCES`, default `172.17.0.1/32`) with the token:
+address (`MONITOR_ALLOWED_SOURCES`, default `172.17.0.1/32`) with the monitor token. PANAG generates the token
+on its first start with `MONITOR_ENABLED=true` and writes it to `usb1/panag-data/monitor.token`. The scheduler
+reads it from there on every run, so you never copy it:
 
 ```routeros
 /system/scheduler/add name=panag-monitor interval=5m on-event=":do { /tool fetch \
     url=\"http://172.17.0.2:8080/monitor.php\" http-method=post \
-    http-header-field=\"X-Monitor-Token: <token>\" output=none } on-error={}"
+    http-header-field=(\"X-Monitor-Token: \" . [/file/get \"usb1/panag-data/monitor.token\" contents]) \
+    output=none } on-error={}"
 ```
 
 **Outgoing connections of the container** – allow only what is needed: the SMTP relay,
@@ -403,7 +404,7 @@ from [db-ip.com](https://db-ip.com/db/lite.php) (CC BY 4.0), unpack them and upl
 | "Invalid OTP or user not found." with a correct code | The router clock is wrong – the login page shows the server time (section 3) – or the user IP in PANAG doesn't match the WireGuard address shown as *User IP*. |
 | *Status*: certificate or API error | Fingerprint missing or outdated (section 10); `www-ssl` disabled; firewall input rule from `172.17.0.2` missing; API user restricted to another address. |
 | Grant succeeds, but the network is not reachable | Firewall rule for this user missing or below the drop rule (section 6.3); list name not `Whitelist <user IP>`; the device's `AllowedIPs` don't cover the network. |
-| *Monitoring*: "No monitor cycle in the last 15 minutes" | Scheduler missing, wrong token, or the call doesn't come from `172.17.0.1` (`MONITOR_ALLOWED_SOURCES`). |
+| *Monitoring*: "No monitor cycle in the last 15 minutes" | Scheduler missing, `usb1/panag-data/monitor.token` missing (`MONITOR_ENABLED=true` set? container restarted?) or at another path than in the scheduler, or the call doesn't come from `172.17.0.1` (`MONITOR_ALLOWED_SOURCES`). |
 | The container does not start | `/log/print where topics~"container"`; wrong image architecture; storage full; container mode not confirmed. |
 | The container stops with `exited with signal 4 (Illegal instruction)` | The image's binaries don't run on this CPU. On 32-bit ARM (`architecture-name` `arm`) only the Debian-based `arm` image works, not V2.0's Alpine-based `armv7` image (section 9). |
 

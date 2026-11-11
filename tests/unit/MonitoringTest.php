@@ -569,6 +569,7 @@ final class MonitoringTest extends TestCase
         foreach (['203.0.113.5', '8.8.8.8', '2001:db8::1', '::ffff:8.8.8.8'] as $ip) {
             $this->assertTrue(geoip_is_public_ip($ip), $ip);
         }
+        $this->assertSame('unit-monitor-token', monitor_token(), 'MONITOR_TOKEN wins over the generated file');
         $this->assertTrue(monitor_request_allowed('172.17.0.1', 'unit-monitor-token'));
         $this->assertFalse(monitor_request_allowed('172.17.0.9', 'unit-monitor-token'), 'wrong source');
         $this->assertFalse(monitor_request_allowed('172.17.0.1', 'wrong'), 'wrong token');

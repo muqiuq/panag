@@ -1,7 +1,8 @@
 <?php
-// Trigger one monitor cycle. Called every 5 min by the RouterOS scheduler:
-//   /tool fetch url="http://<container>:8080/monitor.php" http-method=post http-header-field="X-Monitor-Token: <token>" output=none
-// Protected by MONITOR_TOKEN and MONITOR_ALLOWED_SOURCES (checked against the TCP source address, never X-Forwarded-For).
+// Trigger one monitor cycle. Called every 5 min by the RouterOS scheduler, which reads the token from the data mount:
+//   /tool fetch url="http://<container>:8080/monitor.php" http-method=post http-header-field=("X-Monitor-Token: " . [/file/get "<mount>/monitor.token" contents]) output=none
+// Protected by the monitor token (MONITOR_TOKEN or generated DATA_DIR/monitor.token) and MONITOR_ALLOWED_SOURCES
+// (checked against the TCP source address, never X-Forwarded-For).
 require_once __DIR__ . '/../src/bootstrap.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');

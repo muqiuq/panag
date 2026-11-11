@@ -84,4 +84,16 @@ final class ConfigTest extends TestCase
         $this->assertSame(1800, MONITOR_BUNDLE_WINDOW, 'durations are parsed to seconds');
         $this->assertSame(['CH', 'DE'], MONITOR_ALLOWED_COUNTRIES);
     }
+
+    public function testDataDirSecretIsGeneratedOnceAndKept(): void
+    {
+        $file = rtrim(DATA_DIR, '/') . '/test.secret';
+        @unlink($file);
+        $secret = data_dir_secret('test.secret');
+        $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', $secret);
+        $this->assertSame($secret, file_get_contents($file), 'no newline – the RouterOS scheduler sends the contents as header value');
+        $this->assertSame('600', substr(sprintf('%o', fileperms($file)), -3));
+        $this->assertSame($secret, data_dir_secret('test.secret'), 'reused, not regenerated');
+        unlink($file);
+    }
 }

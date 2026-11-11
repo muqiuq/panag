@@ -46,6 +46,7 @@ $derived = [
     ['Extended access', format_duration_human(MIN_GRANT_DURATION) . ' – ' . format_duration_human(max_grant_duration('extended')), 'Effective limits (hard maximum 12 h)'],
     ['Mail', mail_config_problem() ?? 'ready (' . SMTP_HOST . ':' . SMTP_PORT . ', ' . SMTP_SECURITY . ')', 'Result of the mail configuration check'],
     ['AI triage', ai_config_problem() ?? 'ready (' . OPENROUTER_MODEL . ')', 'Result of the AI configuration check'],
+    ['Monitor token', (string)MONITOR_TOKEN !== '' ? 'from MONITOR_TOKEN' : (is_file(rtrim(DATA_DIR, '/') . '/monitor.token') ? 'generated (DATA_DIR/monitor.token)' : 'not created yet'), 'Secret the scheduler sends to monitor.php (value never shown)'],
     ['Pseudonym key', (string)MONITOR_PSEUDONYM_KEY !== '' ? 'from MONITOR_PSEUDONYM_KEY' : (is_file(rtrim(DATA_DIR, '/') . '/monitor.key') ? 'generated (DATA_DIR/monitor.key)' : 'not created yet'), 'HMAC key for AI pseudonyms (value never shown)'],
     ['PHP', PHP_VERSION . ' (' . PHP_SAPI . ', ' . (PHP_INT_SIZE * 8) . ' bit)', 'Runtime'],
 ];

@@ -61,8 +61,8 @@ function monitor_config_problem(): ?string
     if (!MONITOR_ENABLED) {
         return 'MONITOR_ENABLED is false.';
     }
-    if ((string)MONITOR_TOKEN === '') {
-        return 'MONITOR_TOKEN is not set – monitor.php rejects every call.';
+    if (monitor_token() === '') {
+        return 'Cannot create ' . rtrim(DATA_DIR, '/') . '/monitor.token (DATA_DIR not writable?) – monitor.php rejects every call.';
     }
     return null;
 }

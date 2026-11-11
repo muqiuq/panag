@@ -66,10 +66,20 @@ function run_monitor_cycle(?int $now = null): array
     return $stats;
 }
 
-/** monitor.php: only from MONITOR_ALLOWED_SOURCES (TCP source, never X-Forwarded-For) and with MONITOR_TOKEN. */
+/**
+ * Token for monitor.php: MONITOR_TOKEN, otherwise generated in DATA_DIR/monitor.token. The RouterOS scheduler
+ * reads that file through the data mount, so nobody has to copy the token.
+ */
+function monitor_token(): string
+{
+    return (string)MONITOR_TOKEN !== '' ? (string)MONITOR_TOKEN : data_dir_secret('monitor.token');
+}
+
+/** monitor.php: only from MONITOR_ALLOWED_SOURCES (TCP source, never X-Forwarded-For) and with the monitor token. */
 function monitor_request_allowed(string $source, string $token): bool
 {
-    return (string)MONITOR_TOKEN !== '' && ip_in_any_cidr($source, MONITOR_ALLOWED_SOURCES) && hash_equals((string)MONITOR_TOKEN, $token);
+    $expected = monitor_token();
+    return $expected !== '' && ip_in_any_cidr($source, MONITOR_ALLOWED_SOURCES) && hash_equals($expected, $token);
 }
 
 /** Remove old data (docs/plan-security-monitoring.md, chapter 9). */

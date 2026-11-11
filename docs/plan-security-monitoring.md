@@ -80,7 +80,7 @@ PANAG soll ungewöhnliches Verhalten erkennen und per E-Mail alarmieren:
 
 **Auslösung:**
 1. **RouterOS:** ein Scheduler ruft alle 5 min `public/monitor.php` auf.
-   - Schutz: `MONITOR_TOKEN` im Header, Vergleich per `hash_equals`.
+   - Schutz: Token im Header, Vergleich per `hash_equals`. PANAG erzeugt ihn in `DATA_DIR/monitor.token` (oder `MONITOR_TOKEN`); der Scheduler liest die Datei über den Mount.
    - Zusätzlich nur von `MONITOR_ALLOWED_SOURCES` (Default: der Router, `172.17.0.1`).
    - Ein Datei-Lock in `DATA_DIR` verhindert Überlappung.
 2. **Docker-Hosts und Dev:** `php bin/monitor.php --loop --interval=300` als eigener Compose-Service, ausserdem `./run.sh monitor` für einen einzelnen Zyklus.
@@ -312,7 +312,7 @@ Status-Prüfungen (Testmail, GeoIP geladen, KI-Testaufruf) bleiben Aktionen in `
 |----------|---------|-----------|
 | *Monitoring* | | |
 | `MONITOR_ENABLED` | `false` | Gesamtschalter |
-| `MONITOR_TOKEN[_FILE]` | – | Secret; Pflicht, wenn aktiv; Header `X-Monitor-Token` |
+| `MONITOR_TOKEN[_FILE]` | – | Secret; Header `X-Monitor-Token`; leer = in `DATA_DIR/monitor.token` erzeugt |
 | `MONITOR_ALLOWED_SOURCES` | `172.17.0.1` | CIDR-Liste: wer `monitor.php` aufrufen darf |
 | `MONITOR_INTERVAL` | `300` | Sekunden, nur für `bin/monitor.php --loop` |
 | `MONITOR_ALLOWED_COUNTRIES` | `CH` | ISO-Codes, kommasepariert (Regel W2) |
@@ -382,7 +382,8 @@ Der Heartbeat an ein Drittsystem folgt später. Der Plan hält ihn nur nicht unn
   ```routeros
   /system scheduler add name=panag-monitor interval=5m on-event=":do { /tool fetch \
       url=\"http://172.17.0.2:8080/monitor.php\" http-method=post \
-      http-header-field=\"X-Monitor-Token: <token>\" output=none } on-error={}"
+      http-header-field=(\"X-Monitor-Token: \" . [/file/get \"usb1/panag-data/monitor.token\" contents]) \
+      output=none } on-error={}"
   ```
 
 - **Egress vom Container**, nur das Nötige: SMTP-Relay (587/465), `openrouter.ai:443` bzw. `eu.openrouter.ai:443` (nur mit KI) und `download.db-ip.com:443` (nur mit Auto-Update). Umsetzung: Address-List mit DNS-Namen plus Forward-Regel.

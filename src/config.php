@@ -215,7 +215,7 @@ $cfg('OTP_ISSUER', APP_NAME, 'string', 'Issuer shown in authenticator apps');
 // --- Security monitoring (docs/plan-security-monitoring.md) ------------------
 $group('Monitoring');
 $cfg('MONITOR_ENABLED', false, 'bool', 'Master switch for security monitoring (alerts, WireGuard/GeoIP checks, mails)');
-$cfg('MONITOR_TOKEN', '', 'string', 'Token the scheduler sends as X-Monitor-Token to monitor.php (required when enabled)', ['secret' => true]);
+$cfg('MONITOR_TOKEN', '', 'string', 'Token the scheduler sends as X-Monitor-Token to monitor.php (empty = generated in DATA_DIR/monitor.token)', ['secret' => true]);
 $cfg('MONITOR_ALLOWED_SOURCES', ['172.17.0.1/32'], 'list', 'Clients allowed to trigger monitor.php (CIDR list; normally only the router)');
 $cfg('MONITOR_INTERVAL', 300, 'int', 'Seconds between cycles for bin/monitor.php --loop');
 $cfg('MONITOR_ALLOWED_COUNTRIES', ['CH'], 'list', 'ISO country codes that never alert by themselves (rule W2)');

@@ -1,6 +1,19 @@
 <?php
 // Core helpers. Loaded via src/bootstrap.php.
 
+/** Random secret in DATA_DIR/$name: created on first use (64 hex characters, no newline), then reused. */
+function data_dir_secret(string $name): string
+{
+    $file = rtrim(DATA_DIR, '/') . '/' . $name;
+    // 'x' fails if the file exists, so two first calls at the same time cannot overwrite each other's secret.
+    if (!is_file($file) && ($fh = @fopen($file, 'x')) !== false) {
+        @chmod($file, 0600);
+        fwrite($fh, bin2hex(random_bytes(32)));
+        fclose($fh);
+    }
+    return trim((string)@file_get_contents($file));
+}
+
 function base_path(): string
 {
     static $cached = null;
