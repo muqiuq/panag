@@ -1,6 +1,6 @@
 # PANAG – Übergabe / Stand der Arbeit
 
-Stand: 2026-11-09 · Branch `main` · Version **V2.0** (Tag `v2.0` auf GitHub) · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
+Stand: 2026-11-11 · Branch `main` · Version **V2.1** (Tag `v2.1` auf GitHub) · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
 Claude-Session) nahtlos fortzusetzen. Der Gesamtplan steht in [PLAN.md](PLAN.md); dieses Dokument fasst
 zusammen, was entschieden, gebaut und gelernt wurde.
 
@@ -192,3 +192,6 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 8. **32-bit-ARM-Image auf dem hEX S testen** (2026-11-10): V2.0s Alpine-armv7-Image und der erste Versuch mit
    Debian trixie armel sterben dort mit SIGILL; jetzt Basis `php:8.4-apache-bookworm` (am Gerät getestet). Nach
    dem Push gibt es `ghcr.io/muqiuq/panag:edge`; Größe in der CI (`arm-smoke`) ablesen, Budget 150 MB ggf. enger.
+9. **V2.1** (2026-11-11): 32-bit-ARM-Image auf `php:8.4-apache-bookworm` (Punkt 8) und automatisch erzeugter
+   Monitor-Token (`DATA_DIR/monitor.token`, der RouterOS-Scheduler liest ihn über den Mount –
+   `MONITOR_ENABLED=true` genügt). Offen: die Scheduler-Zeile mit `/file/get … contents` am hEX S prüfen.

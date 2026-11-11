@@ -213,8 +213,7 @@ PANAG is configured with environment variables. All of them are documented in
 **Which image?** `architecture-name` `arm64` → `arm64` image, `arm` → `arm` image, `x86_64` → `amd64`.
 With `remote-image`, RouterOS picks the right one by itself. The `arm` image (`linux/arm/v7`) is based on the
 official `php:8.4-apache-bookworm` image. V2.0 still shipped an Alpine-based `armv7` image, which stops right away
-with `exited with signal 4 (Illegal instruction)` in RouterOS – on a 32-bit ARM router use a later release (until
-then `edge`).
+with `exited with signal 4 (Illegal instruction)` in RouterOS – on a 32-bit ARM router use V2.1 or later.
 
 The database lives on the data mount and survives updates:
 
@@ -226,17 +225,17 @@ The database lives on the data mount and survives updates:
 
 ```routeros
 /container/config/set registry-url=https://ghcr.io tmpdir=usb1/tmp
-/container/add remote-image=muqiuq/panag:v2.0 interface=veth-panag envlist=panag \
+/container/add remote-image=muqiuq/panag:v2.1 interface=veth-panag envlist=panag \
     mountlists=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 
-Pin a version (`v2.0`) instead of `latest`, so an update only happens when you decide.
+Pin a version (`v2.1`) instead of `latest`, so an update only happens when you decide.
 
 **Option B – image file** (no internet needed): download `panag-<version>-arm64.tar` or `panag-<version>-arm.tar`
 from the [GitHub release](https://github.com/muqiuq/panag/releases), upload it to `usb1/`, then:
 
 ```routeros
-/container/add file=usb1/panag-v2.0-arm64.tar interface=veth-panag envlist=panag \
+/container/add file=usb1/panag-v2.1-arm64.tar interface=veth-panag envlist=panag \
     mountlists=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 
@@ -247,7 +246,7 @@ from the [GitHub release](https://github.com/muqiuq/panag/releases), upload it t
 /log/print where topics~"container"
 ```
 
-Expected: `PANAG V2.0 listening on :8080 (data: /data)`. Configuration problems are listed in the log at
+Expected: `PANAG V2.1 listening on :8080 (data: /data)`. Configuration problems are listed in the log at
 start and on PANAG's *Config* page.
 
 ## 10. Certificate fingerprint
