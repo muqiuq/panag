@@ -33,7 +33,7 @@ PANAG runs as a container directly on the MikroTik router that terminates the ad
 1. Install the container package, enable container mode, add a USB stick or microSD card and NTP.
 2. Give every admin a WireGuard peer with a fixed `/32` address – that address is the PANAG user IP.
 3. Create the container network, the API user and HTTPS for the RouterOS REST API.
-4. Start the image (`ghcr.io/muqiuq/panag:v2.1` or the release tarball) with a few environment variables.
+4. Start the image for your architecture (`ghcr.io/muqiuq/panag:<version>-<arch>`, e.g. `v2.2-arm` on a hEX S, or the release tarball) with a few environment variables.
 5. Add one firewall rule per user: traffic from the user's tunnel IP to the address list
    `Whitelist <user IP>` is allowed – PANAG fills that list with timed entries.
 6. Create the first admin, add networks and users, test a grant.
@@ -71,7 +71,8 @@ the SQLite database lives in `$DATA_DIR` (`/data` in the container).
 ## ⚙️ Configuration
 
 All settings are environment variables – see [.env.example](.env.example).
-Container images are published to `ghcr.io/muqiuq/panag` by GitHub Actions.
+Container images are published to `ghcr.io/muqiuq/panag` by GitHub Actions, only for version tags: one image per
+architecture (`<version>-amd64`, `-arm64`, `-arm`), also attached to the GitHub release as `panag-<version>-<arch>.tar`.
 
 ## 🚀 Upcoming features
  - Optional email/notification hooks for granted access events

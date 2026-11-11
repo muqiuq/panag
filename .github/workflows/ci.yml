@@ -1,5 +1,8 @@
 name: CI
 
+# Push to main and pull requests: tests only.
+# Tag v*: one image per architecture, smoke-tested, pushed as ghcr.io/<repo>:<tag>-<arch> and attached to the
+# GitHub release as panag-<tag>-<arch>.tar. No edge, latest, sha-… or multi-arch tags.
 on:
   push:
     branches: [main]
@@ -22,6 +25,7 @@ env:
 jobs:
   lint:
     name: Lint (php -l, shellcheck, PHPStan)
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -29,6 +33,7 @@ jobs:
 
   unit:
     name: Unit + integration tests (PHPUnit)
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -36,6 +41,7 @@ jobs:
 
   e2e:
     name: E2E tests (Playwright vs. mock RouterOS, ${{ matrix.os }})
+    if: github.ref_type != 'tag'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -58,13 +64,17 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  arm-smoke:
-    name: ARM smoke test (${{ matrix.arch }})
+  image:
+    name: Image ${{ github.ref_name }}-${{ matrix.arch }}
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
+      # one failing architecture stops the others – the release only happens with all images
       matrix:
         include:
+          - arch: amd64
+            platform: linux/amd64
+            budget_mb: 50
           - arch: arm64
             platform: linux/arm64
             budget_mb: 50
@@ -72,86 +82,10 @@ jobs:
           - arch: arm
             platform: linux/arm/v7
             budget_mb: 150
-    steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - name: Build ${{ matrix.platform }}
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          target: runtime
-          platforms: ${{ matrix.platform }}
-          load: true
-          tags: panag:smoke
-          cache-from: type=gha,scope=${{ matrix.arch }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.arch }}
-      - name: Start under emulation, check health and size budget
-        run: |
-          docker run -d --name smoke --platform ${{ matrix.platform }} -p 8080:8080 panag:smoke
-          for _ in $(seq 1 60); do
-            curl -fsS http://127.0.0.1:8080/healthz.php && break
-            sleep 2
-          done
-          echo
-          curl -fsS http://127.0.0.1:8080/healthz.php | grep -q '"status":"ok"'
-          curl -fsS -o /dev/null http://127.0.0.1:8080/login.php
-          docker exec smoke sh -c 'uname -m; php -v | head -1'
-          size=$(docker image inspect panag:smoke --format '{{.Size}}')
-          echo "Image size: $((size / 1024 / 1024)) MB"
-          if [ "$size" -gt $((${{ matrix.budget_mb }} * 1024 * 1024)) ]; then
-            echo "::error::Image exceeds the ${{ matrix.budget_mb }} MB budget for ${{ matrix.platform }}"
-            exit 1
-          fi
-      - name: Container logs
-        if: failure()
-        run: docker logs smoke || true
-
-  publish:
-    name: Publish multi-arch image to GHCR
-    if: github.event_name == 'push'
-    needs: [lint, unit, e2e, arm-smoke]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=edge,branch=main
-            type=sha
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          target: runtime
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=publish
-          cache-to: type=gha,mode=max,scope=publish
-
-  release:
-    name: GitHub release with RouterOS image tarballs
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [publish]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    env:
+      # (the workflow-level env context is not available here)
+      IMAGE: ghcr.io/${{ github.repository }}:${{ github.ref_name }}-${{ matrix.arch }}
+      TARBALL: panag-${{ github.ref_name }}-${{ matrix.arch }}.tar
     steps:
       - uses: actions/checkout@v7
       - name: VERSION must match the tag
@@ -163,17 +97,75 @@ jobs:
           fi
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
-      - name: Export docker-archive tarballs (for /container add file=...)
+      - name: Build ${{ matrix.platform }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: runtime
+          platforms: ${{ matrix.platform }}
+          tags: ${{ env.IMAGE }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ github.ref_name }}
+          provenance: false
+          sbom: false
+          # docker-archive for RouterOS (/container/add file=...); the same file is loaded, tested and pushed
+          outputs: type=docker,dest=${{ env.TARBALL }}
+      - name: Start (under emulation for ARM), check health and size budget
         run: |
-          mkdir -p dist
-          for target in arm64:linux/arm64 arm:linux/arm/v7; do
-            arch="${target%%:*}"; platform="${target#*:}"
-            docker buildx build --platform "$platform" --target runtime \
-              --cache-from type=gha,scope=publish \
-              -t "panag:${GITHUB_REF_NAME}" \
-              --output "type=docker,dest=dist/panag-${GITHUB_REF_NAME}-${arch}.tar" .
+          docker load -i "$TARBALL"
+          docker run -d --name smoke --platform ${{ matrix.platform }} -p 8080:8080 "$IMAGE"
+          for _ in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8080/healthz.php && break
+            sleep 2
           done
+          echo
+          curl -fsS http://127.0.0.1:8080/healthz.php | grep -q '"status":"ok"'
+          curl -fsS -o /dev/null http://127.0.0.1:8080/login.php
+          docker exec smoke sh -c 'uname -m; php -v | head -1'
+          size=$(docker image inspect "$IMAGE" --format '{{.Size}}')
+          echo "Image size: $((size / 1024 / 1024)) MB"
+          if [ "$size" -gt $((${{ matrix.budget_mb }} * 1024 * 1024)) ]; then
+            echo "::error::Image exceeds the ${{ matrix.budget_mb }} MB budget for ${{ matrix.platform }}"
+            exit 1
+          fi
+      - name: Container logs
+        if: failure()
+        run: docker logs smoke || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-${{ matrix.arch }}
+          path: ${{ env.TARBALL }}
+          retention-days: 3
+          compression-level: 0
+
+  release:
+    name: Push images and create the GitHub release
+    needs: [image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-*
+          merge-multiple: true
+          path: dist
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push ${{ env.IMAGE_NAME }}:${{ github.ref_name }}-<arch>
+        run: |
           ls -lh dist
+          for arch in amd64 arm64 arm; do
+            docker load -i "dist/panag-${GITHUB_REF_NAME}-${arch}.tar"
+            docker push "${IMAGE_NAME}:${GITHUB_REF_NAME}-${arch}"
+          done
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}

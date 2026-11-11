@@ -118,7 +118,7 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 | `src/migrations/` | Schema-Migrationen; `bin/migrate.php` läuft beim Container-Start |
 | `dev/mock-routeros/router.php` | Mock der RouterOS-REST-API (`/_mock/reset`, `/_mock/state`, `/_mock/fault`) |
 | `tests/unit`, `tests/integration`, `tests/e2e` | PHPUnit bzw. Playwright |
-| `.github/workflows/ci.yml` | lint, unit, e2e, arm-smoke, publish (GHCR), release (Tarballs) |
+| `.github/workflows/ci.yml` | main/PR: lint, unit, e2e; Tag `v*`: Image pro Architektur (Smoke-Test unter QEMU, Grössenbudget), Push als `<tag>-<arch>`, Release mit `panag-<tag>-<arch>.tar` |
 
 ## 6. Stolpersteine / Wissen, das nicht im Code steht
 
@@ -195,3 +195,7 @@ git clone git@github.com:muqiuq/panag.git && cd panag
 9. **V2.1** (2026-11-11): 32-bit-ARM-Image auf `php:8.4-apache-bookworm` (Punkt 8) und automatisch erzeugter
    Monitor-Token (`DATA_DIR/monitor.token`, der RouterOS-Scheduler liest ihn über den Mount –
    `MONITOR_ENABLED=true` genügt). Offen: die Scheduler-Zeile mit `/file/get … contents` am hEX S prüfen.
+10. **CI nur noch bei Tags** (2026-11-12): main und PRs laufen nur lint, unit und e2e. Ein Tag `v*` baut je
+    Architektur ein Image (`ghcr.io/muqiuq/panag:<tag>-amd64`, `-arm64`, `-arm`), testet es und hängt es als
+    `panag-<tag>-<arch>.tar` an das Release. Kein `edge`, `latest`, `sha-…` oder Multi-Arch-Tag mehr; die alten
+    Tags im GHCR löscht der User von Hand. Zum Testen am hEX S braucht es also einen Tag (erster: `v2.2`).

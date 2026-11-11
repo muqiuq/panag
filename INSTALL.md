@@ -210,10 +210,12 @@ PANAG is configured with environment variables. All of them are documented in
 
 ## 9. Install and start the container
 
-**Which image?** `architecture-name` `arm64` → `arm64` image, `arm` → `arm` image, `x86_64` → `amd64`.
-With `remote-image`, RouterOS picks the right one by itself. The `arm` image (`linux/arm/v7`) is based on the
-official `php:8.4-apache-bookworm` image. V2.0 still shipped an Alpine-based `armv7` image, which stops right away
-with `exited with signal 4 (Illegal instruction)` in RouterOS – on a 32-bit ARM router use V2.1 or later.
+**Which image?** There is one image per architecture, tagged with the version plus the architecture, for example
+`v2.2-arm`. Pick it by `architecture-name` (`/system/resource/print`): `arm` → `-arm` (hEX S E60iUGS),
+`arm64` → `-arm64`, `x86_64` → `-amd64`. Up to V2.1 there was one multi-arch tag per version (`v2.1`), from which
+RouterOS picked the architecture itself. The `arm` image (`linux/arm/v7`) is based on the official
+`php:8.4-apache-bookworm` image. V2.0 still shipped an Alpine-based `armv7` image, which stops right away with
+`exited with signal 4 (Illegal instruction)` in RouterOS – on a 32-bit ARM router use V2.1 or later.
 
 The database lives on the data mount and survives updates:
 
@@ -221,21 +223,21 @@ The database lives on the data mount and survives updates:
 /container/mounts/add list=panag-data src=usb1/panag-data dst=/data
 ```
 
-**Option A – pull from the GitHub Container Registry** (the router needs internet access):
+**Option A – pull from the GitHub Container Registry** (the router needs internet access), here V2.2 on a hEX S:
 
 ```routeros
 /container/config/set registry-url=https://ghcr.io tmpdir=usb1/tmp
-/container/add remote-image=muqiuq/panag:v2.1 interface=veth-panag envlist=panag \
+/container/add remote-image=muqiuq/panag:v2.2-arm interface=veth-panag envlist=panag \
     mountlists=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 
-Pin a version (`v2.1`) instead of `latest`, so an update only happens when you decide.
+There is no `latest` tag, so an update only happens when you change the tag.
 
-**Option B – image file** (no internet needed): download `panag-<version>-arm64.tar` or `panag-<version>-arm.tar`
-from the [GitHub release](https://github.com/muqiuq/panag/releases), upload it to `usb1/`, then:
+**Option B – image file** (no internet needed): download `panag-<version>-<arch>.tar` from the
+[GitHub release](https://github.com/muqiuq/panag/releases), upload it to `usb1/`, then:
 
 ```routeros
-/container/add file=usb1/panag-v2.1-arm64.tar interface=veth-panag envlist=panag \
+/container/add file=usb1/panag-v2.2-arm.tar interface=veth-panag envlist=panag \
     mountlists=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 
@@ -380,7 +382,7 @@ from [db-ip.com](https://db-ip.com/db/lite.php) (CC BY 4.0), unpack them and upl
 * **Health check:** `http://172.17.0.2:8080/healthz.php` (database) and `?deep=1` (database and router API).
   RouterOS Netwatch can probe it with an `http-get` check.
 * **Update:** back up first (below). Then stop and remove the container and add it again with the new version
-  (`remote-image=muqiuq/panag:<new version>` or the new image file). All data lives in the `panag-data` mount
+  (`remote-image=muqiuq/panag:<new version>-<arch>` or the new image file). All data lives in the `panag-data` mount
   and is kept. Database migrations run automatically at start; a copy of the database is written to
   `/data/backups/` first (the newest 5 are kept).
 * **Backup:** *Config → Backup and restore*. *Download full backup* saves all data in one JSON file: users with
