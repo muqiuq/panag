@@ -119,6 +119,35 @@ function ai_features(array $alert, int $now): array
     return $features;
 }
 
+/** OPENROUTER_PROVIDERS = all (or *): any provider, otherwise only the listed ones. @return string[]|null null = all */
+function openrouter_provider_list(array $providers): ?array
+{
+    foreach ($providers as $p) {
+        if (in_array(strtolower(trim((string)$p)), ['all', '*'], true)) {
+            return null;
+        }
+    }
+    return array_values(array_map('strval', $providers));
+}
+
+/** OpenRouter provider routing: zero data retention and no data collection always, "only" unless all are allowed. */
+function ai_provider_preferences(array $providers): array
+{
+    $prefs = [
+        'require_parameters' => true,
+        'data_collection' => 'deny', // fixed – not configurable
+        'zdr' => true,                // fixed – not configurable
+    ];
+    $only = openrouter_provider_list($providers);
+    if ($only !== null) {
+        $prefs['only'] = $only;
+    }
+    return $prefs + [
+        'allow_fallbacks' => true,
+        'max_price' => ['prompt' => (int)OPENROUTER_MAX_PRICE_PROMPT, 'completion' => (int)OPENROUTER_MAX_PRICE_COMPLETION],
+    ];
+}
+
 function ai_request_body(array $features): array
 {
     $body = [
@@ -129,14 +158,7 @@ function ai_request_body(array $features): array
         ],
         'response_format' => ['type' => 'json_schema', 'json_schema' => ['name' => 'panag_triage', 'strict' => true, 'schema' => AI_SCHEMA]],
         'max_tokens' => 2048,
-        'provider' => [
-            'require_parameters' => true,
-            'data_collection' => 'deny', // fixed – not configurable
-            'zdr' => true,                // fixed – not configurable
-            'only' => array_values(array_map('strval', OPENROUTER_PROVIDERS)),
-            'allow_fallbacks' => true,
-            'max_price' => ['prompt' => (int)OPENROUTER_MAX_PRICE_PROMPT, 'completion' => (int)OPENROUTER_MAX_PRICE_COMPLETION],
-        ],
+        'provider' => ai_provider_preferences(OPENROUTER_PROVIDERS),
     ];
     if (OPENROUTER_REASONING_EFFORT !== 'off') {
         $body['reasoning'] = ['effort' => (string)OPENROUTER_REASONING_EFFORT];

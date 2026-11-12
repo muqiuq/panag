@@ -406,6 +406,12 @@ final class MonitoringTest extends TestCase
         $this->assertSame(['require_parameters' => true, 'data_collection' => 'deny', 'zdr' => true, 'only' => ['TestProvider'], 'allow_fallbacks' => true,
             'max_price' => ['prompt' => 2, 'completion' => 6]], $request['provider']);
         $this->assertSame('json_schema', $request['response_format']['type']);
+        foreach ([['all'], ['*'], ['ALL'], ['TestProvider', 'all']] as $all) {
+            $prefs = ai_provider_preferences($all);
+            $this->assertArrayNotHasKey('only', $prefs, implode(',', $all) . ' allows any provider');
+            $this->assertTrue($prefs['zdr'], 'zero data retention also with all');
+            $this->assertSame('deny', $prefs['data_collection']);
+        }
         $this->assertTrue($request['response_format']['json_schema']['strict']);
         $this->assertSame('z-ai/glm-5.3', $request['model']);
         $this->assertSame(['effort' => 'low'], $request['reasoning']);

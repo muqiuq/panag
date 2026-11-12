@@ -86,7 +86,7 @@ $settings = [
     ['Mail users', MONITOR_NOTIFY_USERS ? 'yes' : 'no'],
     ['Mail', mail_config_problem() ?? (SMTP_HOST . ':' . SMTP_PORT . ' (' . SMTP_SECURITY . ')')],
     ['Admin recipients', implode(', ', admin_alert_recipients()) ?: 'none – add e-mail addresses to admins or set ALERT_ADMIN_EMAILS'],
-    ['AI', ai_config_problem() ?? (OPENROUTER_MODEL . ' via ' . implode(', ', OPENROUTER_PROVIDERS) . ', effort ' . OPENROUTER_REASONING_EFFORT)],
+    ['AI', ai_config_problem() ?? (OPENROUTER_MODEL . ' via ' . (openrouter_provider_list(OPENROUTER_PROVIDERS) === null ? 'all providers (zero data retention)' : implode(', ', OPENROUTER_PROVIDERS)) . ', effort ' . OPENROUTER_REASONING_EFFORT)],
     ['Retention', 'IP addresses ' . MONITOR_IP_RETENTION_DAYS . ' days, alerts ' . MONITOR_ALERT_RETENTION_DAYS . ' days'],
 ];
 include view_path('header');

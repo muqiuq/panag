@@ -39,7 +39,7 @@ function ai_config_problem(): ?string
         return 'OPENROUTER_API_KEY is not set.';
     }
     if (OPENROUTER_PROVIDERS === []) {
-        return 'OPENROUTER_PROVIDERS is empty – choose the providers that may receive data.';
+        return 'OPENROUTER_PROVIDERS is empty – list the providers that may receive data, or set it to all.';
     }
     $model = trim((string)OPENROUTER_MODEL);
     if ($model === '' || $model[0] === '~') {

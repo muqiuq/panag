@@ -184,6 +184,7 @@ test('a reused one-time password alerts at once; admins work through the status'
 test('monitoring page: status, peers, GeoIP, test mail and AI test', async ({ page, request }) => {
   await runCycle(request);
   await page.goto('/admin/monitoring.php');
+  await expect(page.locator('#mainNav a[aria-current="page"]')).toHaveText('Monitoring');
   await expect(page.getByTestId('monitor-status')).toContainText('ok');
   await expect(page.getByTestId('geoip-country')).toContainText('DBIP-Country-Lite');
   await expect(page.getByTestId('geoip-asn')).toContainText('ASN');

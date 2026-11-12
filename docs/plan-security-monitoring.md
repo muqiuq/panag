@@ -341,7 +341,7 @@ Status-Prüfungen (Testmail, GeoIP geladen, KI-Testaufruf) bleiben Aktionen in `
 | `OPENROUTER_API_KEY[_FILE]` | – | Secret |
 | `OPENROUTER_BASE_URL` | `https://openrouter.ai/api/v1` | EU: `https://eu.openrouter.ai/api/v1` |
 | `OPENROUTER_MODEL` | `z-ai/glm-5.3` | gepinnt, keine Aliase |
-| `OPENROUTER_PROVIDERS` | – | erlaubte Provider (`only`). **Pflicht, wenn die KI aktiv ist:** ohne Liste gibt es keine KI-Aufrufe, sondern eine Warnung |
+| `OPENROUTER_PROVIDERS` | – | erlaubte Provider (`only`), oder `all` (bzw. `*`) für jeden Provider – Zero Data Retention gilt trotzdem. **Pflicht, wenn die KI aktiv ist:** ohne Wert gibt es keine KI-Aufrufe, sondern eine Warnung |
 | `OPENROUTER_MAX_PRICE_PROMPT`, `OPENROUTER_MAX_PRICE_COMPLETION` | `2`, `6` | US-$ pro Mio. Tokens |
 | `OPENROUTER_REASONING_EFFORT` | `low` | |
 | `MONITOR_AI_MAX_CALLS_PER_DAY`, `MONITOR_AI_TIMEOUT` | `20`, `20` | Aufrufe pro Tag, Sekunden |

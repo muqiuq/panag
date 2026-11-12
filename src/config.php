@@ -257,7 +257,7 @@ $cfg('MONITOR_AI', 'off', 'enum', 'AI triage of alerts: off or openrouter', ['va
 $cfg('OPENROUTER_API_KEY', '', 'string', 'OpenRouter API key (own key for PANAG, with a spending limit)', ['secret' => true]);
 $cfg('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1', 'string', 'OpenRouter API base URL (EU: https://eu.openrouter.ai/api/v1)');
 $cfg('OPENROUTER_MODEL', 'z-ai/glm-5.3', 'string', 'Pinned model id (no ~aliases)');
-$cfg('OPENROUTER_PROVIDERS', [], 'list', 'Allowed providers ("only"); required when AI is on – zero data retention is always enforced');
+$cfg('OPENROUTER_PROVIDERS', [], 'list', 'Allowed providers ("only"), or all for any provider; required when AI is on – zero data retention is always enforced');
 $cfg('OPENROUTER_MAX_PRICE_PROMPT', 2, 'int', 'Max. price in USD per million input tokens');
 $cfg('OPENROUTER_MAX_PRICE_COMPLETION', 6, 'int', 'Max. price in USD per million output tokens');
 $cfg('OPENROUTER_REASONING_EFFORT', 'low', 'enum', 'Reasoning effort: off, low, medium or high', ['values' => ['off', 'low', 'medium', 'high']]);

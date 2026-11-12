@@ -335,7 +335,7 @@ their defaults.
 
 Admins also get alerts at the e-mail address in their profile. Optional AI triage (only pseudonymised facts,
 zero data retention enforced): `MONITOR_AI=openrouter`, `OPENROUTER_API_KEY_FILE` and `OPENROUTER_PROVIDERS`
-(the providers allowed to receive the data; required).
+(the providers allowed to receive the data, or `all` for any provider with zero data retention; required).
 
 **Scheduler** – one monitor cycle every 5 minutes. `monitor.php` only accepts calls from the router's bridge
 address (`MONITOR_ALLOWED_SOURCES`, default `172.17.0.1/32`) with the monitor token. PANAG generates the token
