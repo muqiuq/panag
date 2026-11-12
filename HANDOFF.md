@@ -1,6 +1,6 @@
 # PANAG – Übergabe / Stand der Arbeit
 
-Stand: 2026-11-11 · Branch `main` · Version **V2.1** (Tag `v2.1` auf GitHub) · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
+Stand: 2026-11-12 · Branch `main` · Version **V2.2** (Tag `v2.2` auf GitHub) · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
 Claude-Session) nahtlos fortzusetzen. Der Gesamtplan steht in [PLAN.md](PLAN.md); dieses Dokument fasst
 zusammen, was entschieden, gebaut und gelernt wurde.
 
@@ -201,5 +201,5 @@ git clone git@github.com:muqiuq/panag.git && cd panag
     Tags im GHCR löscht der User von Hand. Zum Testen am hEX S braucht es also einen Tag (erster: `v2.2`).
 11. **32-bit ARM wieder `arm/v5`** (2026-11-12): Das V2.1-`arm`-Image (`arm/v7`, bookworm armhf) stirbt am hEX S
     (RouterOS 7.23.1) mit SIGILL; laufen tut nur `arm/v5`. Dockerfile, `docker/` und `run.sh` sind wieder auf dem
-    Stand von `e8605ee` (Debian trixie armel), die CI baut `-arm` als `linux/arm/v5` (Budget 100 MB). Offen: mit
-    `v2.2` am Gerät bestätigen.
+    Stand von `e8605ee` (Debian trixie armel), die CI baut `-arm` als `linux/arm/v5` (Budget 100 MB). Als **V2.2**
+    getaggt und gepusht (erstes Release mit `<tag>-<arch>`-Images). Offen: `v2.2-arm` am hEX S bestätigen.

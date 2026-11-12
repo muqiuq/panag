@@ -248,7 +248,7 @@ There is no `latest` tag, so an update only happens when you change the tag.
 /log/print where topics~"container"
 ```
 
-Expected: `PANAG V2.1 listening on :8080 (data: /data)`. Configuration problems are listed in the log at
+Expected: `PANAG V2.2 listening on :8080 (data: /data)`. Configuration problems are listed in the log at
 start and on PANAG's *Config* page.
 
 ## 10. Certificate fingerprint
