@@ -54,7 +54,7 @@ jobs:
         env:
           CI: "true"
           PANAG_RUNTIME_OS: ${{ matrix.os }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-${{ matrix.os }}
@@ -133,7 +133,7 @@ jobs:
       - name: Container logs
         if: failure()
         run: docker logs smoke || true
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: image-${{ matrix.arch }}
           path: ${{ env.TARBALL }}
