@@ -19,8 +19,8 @@ PANAG is a lightweight PHP/SQLite web app that hands out temporary or default ac
  - All configuration via environment variables; admins see every effective value (secrets only as "set") on the config page
  - Admins can act as another user (impersonation) and return
  - Local assets (Bootstrap/kjua) for offline-friendly deployments
- - Small container image (~40 MB, Alpine + Apache + PHP 8.4) for `amd64` and `arm64`; 32-bit ARM (`arm/v7`) is
-   based on the official `php:8.4-apache-bookworm` image, because Alpine's armv7 build doesn't run in RouterOS
+ - Small container image (~40 MB, Alpine + Apache + PHP 8.4) for `amd64` and `arm64`, plus a Debian armel
+   variant (`arm/v5`) for 32-bit ARM routers, which can't run hard-float binaries in a container
  - Deployable on a [RouterOS](https://mikrotik.com/software) device using the [Container](https://help.mikrotik.com/docs/spaces/ROS/pages/84901929/Container) feature – see [INSTALL.md](INSTALL.md)
  - Fully testable without a MikroTik: a mock RouterOS REST API is included
 

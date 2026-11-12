@@ -78,10 +78,10 @@ jobs:
           - arch: arm64
             platform: linux/arm64
             budget_mb: 50
-          # Official php image on Debian bookworm (Alpine armv7 dies with SIGILL on RouterOS), bigger than Alpine.
+          # Debian armel (soft-float): every armv7/hard-float image dies with SIGILL in RouterOS on the hEX S.
           - arch: arm
-            platform: linux/arm/v7
-            budget_mb: 150
+            platform: linux/arm/v5
+            budget_mb: 100
     env:
       # (the workflow-level env context is not available here)
       IMAGE: ghcr.io/${{ github.repository }}:${{ github.ref_name }}-${{ matrix.arch }}
