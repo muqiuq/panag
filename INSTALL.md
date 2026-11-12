@@ -211,7 +211,7 @@ PANAG is configured with environment variables. All of them are documented in
 ## 9. Install and start the container
 
 **Which image?** There is one image per architecture, tagged with the version plus the architecture, for example
-`v2.2-arm`. Pick it by `architecture-name` (`/system/resource/print`): `arm` → `-arm` (hEX S E60iUGS),
+`v2.3-arm`. Pick it by `architecture-name` (`/system/resource/print`): `arm` → `-arm` (hEX S E60iUGS),
 `arm64` → `-arm64`, `x86_64` → `-amd64`. Up to V2.1 there was one multi-arch tag per version (`v2.1`), from which
 RouterOS picked the architecture itself. The `arm` image is Debian armel (soft-float, `linux/arm/v5`): in RouterOS
 on the hEX S, every `arm/v7` image stops right away with `exited with signal 4 (Illegal instruction)` – V2.0's and
@@ -223,11 +223,11 @@ The database lives on the data mount and survives updates:
 /container/mounts/add list=panag-data src=usb1/panag-data dst=/data
 ```
 
-**Option A – pull from the GitHub Container Registry** (the router needs internet access), here V2.2 on a hEX S:
+**Option A – pull from the GitHub Container Registry** (the router needs internet access), here V2.3 on a hEX S:
 
 ```routeros
 /container/config/set registry-url=https://ghcr.io tmpdir=usb1/tmp
-/container/add remote-image=muqiuq/panag:v2.2-arm interface=veth-panag envlist=panag \
+/container/add remote-image=muqiuq/panag:v2.3-arm interface=veth-panag envlist=panag \
     mountlists=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 
@@ -237,7 +237,7 @@ There is no `latest` tag, so an update only happens when you change the tag.
 [GitHub release](https://github.com/muqiuq/panag/releases), upload it to `usb1/`, then:
 
 ```routeros
-/container/add file=usb1/panag-v2.2-arm.tar interface=veth-panag envlist=panag \
+/container/add file=usb1/panag-v2.3-arm.tar interface=veth-panag envlist=panag \
     mountlists=panag-data root-dir=usb1/panag start-on-boot=yes logging=yes
 ```
 
@@ -248,7 +248,7 @@ There is no `latest` tag, so an update only happens when you change the tag.
 /log/print where topics~"container"
 ```
 
-Expected: `PANAG V2.2 listening on :8080 (data: /data)`. Configuration problems are listed in the log at
+Expected: `PANAG V2.3 listening on :8080 (data: /data)`. Configuration problems are listed in the log at
 start and on PANAG's *Config* page.
 
 ## 10. Certificate fingerprint

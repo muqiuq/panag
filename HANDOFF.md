@@ -1,6 +1,6 @@
 # PANAG – Übergabe / Stand der Arbeit
 
-Stand: 2026-11-12 · Branch `main` · Version **V2.2** (Tag `v2.2` auf GitHub) · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
+Stand: 2026-11-12 · Branch `main` · Version **V2.3** (Tag `v2.3` auf GitHub) · Dient dazu, die Arbeit auf einem anderen Rechner (oder in einer neuen
 Claude-Session) nahtlos fortzusetzen. Der Gesamtplan steht in [PLAN.md](PLAN.md); dieses Dokument fasst
 zusammen, was entschieden, gebaut und gelernt wurde.
 
@@ -203,3 +203,6 @@ git clone git@github.com:muqiuq/panag.git && cd panag
     (RouterOS 7.23.1) mit SIGILL; laufen tut nur `arm/v5`. Dockerfile, `docker/` und `run.sh` sind wieder auf dem
     Stand von `e8605ee` (Debian trixie armel), die CI baut `-arm` als `linux/arm/v5` (Budget 100 MB). Als **V2.2**
     getaggt und gepusht (erstes Release mit `<tag>-<arch>`-Images). Offen: `v2.2-arm` am hEX S bestätigen.
+12. **V2.3** (2026-11-12): „Monitoring“ im Admin-Menü (neben „Alerts“; vorher nur über Status, Alerts und die
+    Suche erreichbar) und `OPENROUTER_PROVIDERS=all` (oder `*`): kein `only`, jeder Provider darf antworten –
+    Zero Data Retention und `data_collection=deny` bleiben erzwungen.
